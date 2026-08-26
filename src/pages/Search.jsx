@@ -62,13 +62,13 @@ export default function SearchPage() {
   }
 
   const Row = ({ to, primary, secondary, right, badge }) => (
-    <Link to={to} className="flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50">
+    <Link to={to} className="flex items-center gap-2.5 px-4 py-2.5 hover:bg-slate-50">
       <span className="min-w-0 flex-1">
         <span className="block truncate text-[13.5px] font-semibold text-slate-800">{primary}</span>
         <span className="block truncate text-[11.5px] text-slate-400">{secondary}</span>
       </span>
       {right && <span className="shrink-0 text-[13px] font-bold tabular-nums text-slate-800">{right}</span>}
-      {badge && <StatusBadge status={badge} />}
+      {badge && <StatusBadge className="shrink-0" status={badge} />}
     </Link>
   )
 

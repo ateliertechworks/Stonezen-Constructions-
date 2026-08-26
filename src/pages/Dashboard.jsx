@@ -6,7 +6,7 @@ import {
 } from 'recharts'
 import {
   IndianRupee, TrendingUp, Hammer, Clock, FileText, Users, BellRing,
-  ArrowUpRight, ReceiptIndianRupee, Wallet, TrendingDown, Plus, AlertTriangle,
+  ArrowUpRight, ReceiptIndianRupee, Wallet, TrendingDown, AlertTriangle,
 } from 'lucide-react'
 
 import { useStore } from '../lib/useStore'
@@ -44,14 +44,9 @@ export default function Dashboard() {
             {db.settings.company.name} · {a.activeProjects} active project{a.activeProjects === 1 ? '' : 's'}
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button size="sm" variant="outline" onClick={() => navigate('/payments')}>
-            <Wallet /> Record Payment
-          </Button>
-          <Button size="sm" onClick={() => navigate('/quotations/new')}>
-            <Plus /> New Quotation
-          </Button>
-        </div>
+        <Button size="sm" className="ml-auto" onClick={() => navigate('/payments')}>
+          <Wallet /> Record Payment
+        </Button>
       </div>
 
       {/* KPIs */}

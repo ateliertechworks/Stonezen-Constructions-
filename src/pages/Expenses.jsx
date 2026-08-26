@@ -168,7 +168,7 @@ export default function Expenses() {
           <CardContent className="space-y-2 p-3">
             {stats.byCategory.length === 0 && <p className="py-4 text-center text-[13px] text-slate-400">No expenses yet.</p>}
             {stats.byCategory.map(([name, value]) => (
-              <button key={name} onClick={() => setCategory(name)} className="block w-full text-left">
+              <button key={name} onClick={() => setCategory(name)} className="block w-full rounded-lg py-1 text-left transition-colors hover:bg-slate-50">
                 <div className="flex items-baseline justify-between text-[12.5px]">
                   <span className="text-slate-600">{name}</span>
                   <span className="font-bold tabular-nums text-slate-800">{formatINRCompact(value)}</span>

@@ -124,7 +124,7 @@ export default function Followups() {
                     </p>
                   </div>
 
-                  <div className="text-right">
+                  <div className="ml-auto shrink-0 text-right">
                     <p className="text-lg font-bold tabular-nums text-slate-900">{formatINR(value)}</p>
                     <p className="text-[11px] text-slate-400">valid until {formatDate(q.validUntil)}</p>
                   </div>
@@ -148,18 +148,18 @@ export default function Followups() {
                     >
                       <Mail /> Email
                     </Button>
-                    <Button size="iconSm" variant="outline" title="Call" disabled={!client?.phone}
+                    <Button size="icon" variant="outline" title="Call" disabled={!client?.phone}
                       onClick={() => {
                         markContacted(q, 'phone')
                         openLink(telLink(client.phone))
                       }}>
                       <Phone />
                     </Button>
-                    <Button size="iconSm" variant="outline" title="Open quotation" onClick={() => navigate(`/quotations/${q.id}/preview`)}>
+                    <Button size="icon" variant="outline" title="Open quotation" onClick={() => navigate(`/quotations/${q.id}/preview`)}>
                       <Eye />
                     </Button>
                     <Button
-                      size="iconSm" variant="outline" title="Mark as accepted" className="text-emerald-600"
+                      size="icon" variant="outline" title="Mark as accepted" className="text-emerald-600"
                       onClick={() => {
                         updateQuotation(q.id, { status: 'Accepted' })
                         addActivity(`Quotation ${q.id} accepted — ${formatINR(value)}`, 'quotation')
@@ -168,7 +168,7 @@ export default function Followups() {
                       <CheckCircle2 />
                     </Button>
                     <Button
-                      size="iconSm" variant="outline" title="Mark as rejected" className="text-red-600"
+                      size="icon" variant="outline" title="Mark as rejected" className="text-red-600"
                       onClick={() => {
                         updateQuotation(q.id, { status: 'Rejected' })
                         addActivity(`Quotation ${q.id} marked rejected`, 'quotation')

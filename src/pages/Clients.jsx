@@ -145,22 +145,22 @@ export default function Clients() {
                 ))}
               </div>
 
-              <div className="mt-3 flex items-center gap-1.5 border-t border-slate-100 pt-2.5">
+              <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-slate-100 pt-2.5">
                 <Button size="xs" variant="outline" asChild className="flex-1">
                   <Link to={`/clients/${c.id}`}>Open profile</Link>
                 </Button>
-                <Button size="iconSm" variant="ghost" title="WhatsApp" disabled={!c.whatsapp && !c.phone}
+                <Button size="iconSm" variant="ghost" className="shrink-0" title="WhatsApp" disabled={!c.whatsapp && !c.phone}
                   onClick={() => openLink(whatsappLink(c.whatsapp || c.phone, `Hello ${c.contactPerson || c.name},`))}>
                   <MessageCircle className="text-[#25D366]" />
                 </Button>
-                <Button size="iconSm" variant="ghost" title="Email" disabled={!c.email}
+                <Button size="iconSm" variant="ghost" className="shrink-0" title="Email" disabled={!c.email}
                   onClick={() => openLink(mailtoLink(c.email, `Regarding your project`, ''))}>
                   <Mail />
                 </Button>
-                <Button size="iconSm" variant="ghost" title="Edit" onClick={() => setDialog({ open: true, client: c })}>
+                <Button size="iconSm" variant="ghost" className="shrink-0" title="Edit" onClick={() => setDialog({ open: true, client: c })}>
                   <Pencil />
                 </Button>
-                <Button size="iconSm" variant="ghost" title="Delete" className="text-red-500 hover:bg-red-50"
+                <Button size="iconSm" variant="ghost" className="shrink-0 text-red-500 hover:bg-red-50" title="Delete"
                   onClick={() => setConfirm(c)}>
                   <Trash2 />
                 </Button>

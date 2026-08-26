@@ -47,20 +47,30 @@ function NavItems({ counts, onNavigate, compact }) {
             onClick={onNavigate}
             className={({ isActive }) =>
               cn(
-                'flex h-9 items-center gap-2.5 rounded-lg px-2.5 text-[13.5px] font-semibold transition-colors',
+                'group relative flex h-10 items-center gap-3 rounded-xl pl-3.5 pr-2.5 text-[13.5px] font-semibold transition-all duration-150',
                 isActive
-                  ? 'bg-white/15 text-white'
-                  : 'text-navy-200 hover:bg-white/10 hover:text-white',
-                compact && 'h-8 text-[13px]',
+                  ? 'bg-white/12 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]'
+                  : 'text-navy-200 hover:bg-white/[0.07] hover:text-white',
+                compact && 'h-9 text-[13px]',
               )
             }
           >
-            <Icon className="h-[17px] w-[17px] shrink-0" />
-            <span className="flex-1 truncate">{n.label}</span>
-            {count > 0 && (
-              <span className="shrink-0 rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-bold text-slate-900">
-                {count}
-              </span>
+            {({ isActive }) => (
+              <>
+                <span
+                  className={cn(
+                    'absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-amber-400 transition-opacity',
+                    isActive ? 'opacity-100' : 'opacity-0',
+                  )}
+                />
+                <Icon className={cn('h-[17px] w-[17px] shrink-0 transition-colors', isActive ? 'text-white' : 'text-navy-300 group-hover:text-white')} />
+                <span className="flex-1 truncate">{n.label}</span>
+                {count > 0 && (
+                  <span className="shrink-0 rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-bold text-slate-900">
+                    {count}
+                  </span>
+                )}
+              </>
             )}
           </NavLink>
         )
@@ -105,9 +115,14 @@ export default function Layout() {
   }
 
   const Sidebar = (
-    <div className="flex h-full flex-col bg-brand-dark">
-      <div className="flex items-center gap-2.5 px-4 py-4">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-[15px] font-extrabold tracking-tighter text-brand">
+    <div className="relative flex h-full flex-col overflow-hidden bg-gradient-to-b from-[#182f6e] via-brand-dark to-[#0f1c47]">
+      <div
+        className="pointer-events-none absolute -top-24 -left-16 h-56 w-56 rounded-full bg-brand-light/25 blur-3xl"
+        aria-hidden="true"
+      />
+
+      <div className="relative flex items-center gap-2.5 px-4 py-5">
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-[15px] font-extrabold tracking-tighter text-brand shadow-md">
           SZ
         </div>
         <div className="min-w-0">
@@ -119,12 +134,12 @@ export default function Layout() {
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-2.5 pb-3">
+      <div className="relative flex-1 overflow-y-auto px-3 pb-3">
         <NavItems counts={counts} onNavigate={() => setDrawer(false)} />
       </div>
 
-      <div className="border-t border-white/10 px-2.5 py-3">
-        <div className="flex items-center gap-2.5 rounded-lg px-2 py-1.5">
+      <div className="relative border-t border-white/10 px-3 py-3">
+        <div className="flex items-center gap-2.5 rounded-xl px-2 py-1.5">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/15 text-[11px] font-bold text-white">
             {_i(session?.name || 'SZ')}
           </div>
@@ -143,23 +158,23 @@ export default function Layout() {
   return (
     <div className="min-h-full bg-slate-50">
       {/* Desktop sidebar */}
-      <aside className="fixed inset-y-0 left-0 z-40 hidden w-56 lg:block">{Sidebar}</aside>
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 lg:block">{Sidebar}</aside>
 
       {/* Mobile drawer */}
       {drawer && (
         <>
-          <div className="fixed inset-0 z-40 bg-slate-900/50 lg:hidden" onClick={() => setDrawer(false)} />
-          <aside className="fixed inset-y-0 left-0 z-50 w-64 animate-slide-up lg:hidden">{Sidebar}</aside>
+          <div className="fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-[1px] lg:hidden" onClick={() => setDrawer(false)} />
+          <aside className="fixed inset-y-0 left-0 z-50 w-[82vw] max-w-72 shadow-2xl animate-slide-up lg:hidden">{Sidebar}</aside>
         </>
       )}
 
-      <div className="lg:pl-56">
+      <div className="lg:pl-64">
         <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-slate-200 bg-white/95 px-3 backdrop-blur sm:px-4">
-          <button className="rounded-lg p-2 text-slate-600 hover:bg-slate-100 lg:hidden" onClick={() => setDrawer(true)} aria-label="Open menu">
+          <button className="shrink-0 rounded-lg p-2 text-slate-600 hover:bg-slate-100 lg:hidden" onClick={() => setDrawer(true)} aria-label="Open menu">
             <Menu className="h-5 w-5" />
           </button>
 
-          <form onSubmit={submitSearch} className="relative flex-1 max-w-xl">
+          <form onSubmit={submitSearch} className="relative min-w-0 flex-1 max-w-xl">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
               id="global-search"
@@ -173,7 +188,7 @@ export default function Layout() {
             </kbd>
           </form>
 
-          <div className="ml-auto hidden items-center gap-2 sm:flex">
+          <div className="ml-auto hidden shrink-0 items-center gap-2 sm:flex">
             <Button size="sm" variant="outline" onClick={() => navigate('/invoices/new')}>
               <ReceiptIndianRupee /> New Invoice
             </Button>

@@ -112,7 +112,11 @@ export default function Invoices() {
         <>
           <div className="space-y-2.5 md:hidden">
             {rows.map(({ inv, client, totals, balance, display }) => (
-              <div key={inv.id} className="rounded-xl border border-slate-200 bg-white p-3 shadow-card" onClick={() => navigate(`/invoices/${inv.id}/preview`)}>
+              <div
+                key={inv.id}
+                className="cursor-pointer rounded-xl border border-slate-200 bg-white p-3.5 shadow-card transition-colors active:bg-slate-50"
+                onClick={() => navigate(`/invoices/${inv.id}/preview`)}
+              >
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <p className="text-[13.5px] font-bold text-slate-900">{inv.id}</p>

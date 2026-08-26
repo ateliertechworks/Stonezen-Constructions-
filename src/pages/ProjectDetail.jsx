@@ -170,8 +170,8 @@ export default function ProjectDetail() {
                   <span className="block text-[13px] font-semibold text-slate-800">{q.id}</span>
                   <span className="block truncate text-[11.5px] text-slate-400">{q.title}</span>
                 </span>
-                <span className="text-[13px] font-bold tabular-nums text-slate-800">{formatINR(quotationTotals(q).grandTotal)}</span>
-                <StatusBadge status={q.status} />
+                <span className="shrink-0 text-[13px] font-bold tabular-nums text-slate-800">{formatINR(quotationTotals(q).grandTotal)}</span>
+                <StatusBadge className="shrink-0" status={q.status} />
               </Link>
             ))}
             {invoices.map((i) => (
@@ -183,8 +183,8 @@ export default function ProjectDetail() {
                     Balance {formatINR(invoiceBalance(db, i))} · due {formatDate(i.dueDate)}
                   </span>
                 </span>
-                <span className="text-[13px] font-bold tabular-nums text-slate-800">{formatINR(invoiceTotals(i).grandTotal)}</span>
-                <StatusBadge status={invoiceDisplayStatus(db, i)} />
+                <span className="shrink-0 text-[13px] font-bold tabular-nums text-slate-800">{formatINR(invoiceTotals(i).grandTotal)}</span>
+                <StatusBadge className="shrink-0" status={invoiceDisplayStatus(db, i)} />
               </Link>
             ))}
           </CardContent>
@@ -202,32 +202,34 @@ export default function ProjectDetail() {
             {payments.length === 0 ? (
               <p className="py-8 text-center text-[13px] text-slate-400">No payments recorded yet.</p>
             ) : (
-              <Table>
-                <THead>
-                  <TR>
-                    <TH>Date</TH>
-                    <TH>Method</TH>
-                    <TH className="hidden sm:table-cell">Notes</TH>
-                    <TH className="text-right">Amount</TH>
-                  </TR>
-                </THead>
-                <TBody>
-                  {payments.map((p) => (
-                    <TR key={p.id}>
-                      <TD className="whitespace-nowrap text-[12.5px]">{formatDate(p.date)}</TD>
-                      <TD className="text-[12.5px]">{p.method}</TD>
-                      <TD className="hidden sm:table-cell max-w-[180px] truncate text-[12px] text-slate-500">{p.notes || '—'}</TD>
-                      <TD className="text-right font-semibold tabular-nums text-emerald-600">{formatINR(p.amount)}</TD>
+              <TableWrap className="rounded-none border-0 shadow-none">
+                <Table>
+                  <THead>
+                    <TR>
+                      <TH>Date</TH>
+                      <TH>Method</TH>
+                      <TH className="hidden sm:table-cell">Notes</TH>
+                      <TH className="text-right">Amount</TH>
                     </TR>
-                  ))}
-                </TBody>
-                <TFoot>
-                  <TR>
-                    <TD colSpan={3} className="text-right font-bold text-slate-700">Total received</TD>
-                    <TD className="text-right font-bold tabular-nums text-emerald-600">{formatINR(s.revenue)}</TD>
-                  </TR>
-                </TFoot>
-              </Table>
+                  </THead>
+                  <TBody>
+                    {payments.map((p) => (
+                      <TR key={p.id}>
+                        <TD className="whitespace-nowrap text-[12.5px]">{formatDate(p.date)}</TD>
+                        <TD className="text-[12.5px]">{p.method}</TD>
+                        <TD className="hidden sm:table-cell max-w-[180px] truncate text-[12px] text-slate-500">{p.notes || '—'}</TD>
+                        <TD className="text-right font-semibold tabular-nums text-emerald-600">{formatINR(p.amount)}</TD>
+                      </TR>
+                    ))}
+                  </TBody>
+                  <TFoot>
+                    <TR>
+                      <TD colSpan={3} className="text-right font-bold text-slate-700">Total received</TD>
+                      <TD className="text-right font-bold tabular-nums text-emerald-600">{formatINR(s.revenue)}</TD>
+                    </TR>
+                  </TFoot>
+                </Table>
+              </TableWrap>
             )}
           </CardContent>
         </Card>

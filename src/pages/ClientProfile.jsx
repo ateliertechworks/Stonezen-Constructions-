@@ -120,7 +120,7 @@ export default function ClientProfile() {
             </div>
             {client.notes && <p className="mt-2 rounded-lg bg-slate-50 px-2.5 py-1.5 text-[12.5px] text-slate-600">{client.notes}</p>}
           </div>
-          <div className="flex gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5 sm:justify-end">
             <Button size="sm" variant="whatsapp" disabled={!client.whatsapp && !client.phone}
               onClick={() => openLink(whatsappLink(client.whatsapp || client.phone, `Hello ${client.contactPerson || client.name},`))}>
               <MessageCircle /> WhatsApp

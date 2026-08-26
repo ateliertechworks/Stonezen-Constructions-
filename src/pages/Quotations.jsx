@@ -104,7 +104,11 @@ export default function Quotations() {
           {/* Mobile cards */}
           <div className="space-y-2.5 md:hidden">
             {rows.map(({ qt, client, totals }) => (
-              <div key={qt.id} className="rounded-xl border border-slate-200 bg-white p-3 shadow-card" onClick={() => navigate(`/quotations/${qt.id}/preview`)}>
+              <div
+                key={qt.id}
+                className="cursor-pointer rounded-xl border border-slate-200 bg-white p-3.5 shadow-card transition-colors active:bg-slate-50"
+                onClick={() => navigate(`/quotations/${qt.id}/preview`)}
+              >
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <p className="text-[13.5px] font-bold text-slate-900">{qt.id}</p>

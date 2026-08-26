@@ -151,14 +151,14 @@ export default function Projects() {
                   ))}
                 </div>
 
-                <div className="mt-2.5 flex gap-1.5">
+                <div className="mt-2.5 flex flex-wrap gap-1.5">
                   <Button size="xs" variant="outline" asChild className="flex-1">
                     <Link to={`/projects/${p.id}`}>Open</Link>
                   </Button>
-                  <Button size="iconSm" variant="ghost" title="Edit" onClick={() => setDialog({ open: true, project: p })}>
+                  <Button size="iconSm" variant="ghost" className="shrink-0" title="Edit" onClick={() => setDialog({ open: true, project: p })}>
                     <Pencil />
                   </Button>
-                  <Button size="iconSm" variant="ghost" title="Delete" className="text-red-500 hover:bg-red-50" onClick={() => setConfirm(p)}>
+                  <Button size="iconSm" variant="ghost" className="shrink-0 text-red-500 hover:bg-red-50" title="Delete" onClick={() => setConfirm(p)}>
                     <Trash2 />
                   </Button>
                 </div>
