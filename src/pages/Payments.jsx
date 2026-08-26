@@ -23,7 +23,8 @@ const METHOD_TONE = {
   Cheque: 'amber', Cash: 'green', Card: 'slate',
 }
 
-export default function Payments() {
+/** `embedded` renders this inside the Accounts workspace, which supplies its own page header. */
+export default function Payments({ embedded = false }) {
   const db = useStore()
   const [q, setQ] = useState('')
   const [method, setMethod] = useState('All')
@@ -62,16 +63,28 @@ export default function Payments() {
 
   return (
     <div>
-      <PageHeader
-        icon={Wallet}
-        title="Payments"
-        subtitle={`${db.payments.length} payments · ${formatINR(stats.total)} received`}
-        actions={
-          <Button size="sm" onClick={() => setDialog({ open: true, payment: null })}>
+      {embedded ? (
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <p className="text-[13px] text-slate-500">
+            {db.payments.length} payments ·{' '}
+            <span className="font-semibold text-slate-800">{formatINR(stats.total)}</span> received
+          </p>
+          <Button size="sm" className="ml-auto" onClick={() => setDialog({ open: true, payment: null })}>
             <Plus /> Record Payment
           </Button>
-        }
-      />
+        </div>
+      ) : (
+        <PageHeader
+          icon={Wallet}
+          title="Payments"
+          subtitle={`${db.payments.length} payments · ${formatINR(stats.total)} received`}
+          actions={
+            <Button size="sm" onClick={() => setDialog({ open: true, payment: null })}>
+              <Plus /> Record Payment
+            </Button>
+          }
+        />
+      )}
 
       <div className="mb-3 grid grid-cols-2 gap-2.5 lg:grid-cols-4">
         <StatCard label="Total Received" value={formatINRCompact(stats.total)} icon={IndianRupee} tone="green" />

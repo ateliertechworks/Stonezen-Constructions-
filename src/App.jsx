@@ -19,11 +19,8 @@ import QuotationPreview from './pages/QuotationPreview'
 import Invoices from './pages/Invoices'
 import InvoiceBuilder from './pages/InvoiceBuilder'
 import InvoicePreview from './pages/InvoicePreview'
-import Payments from './pages/Payments'
-import Expenses from './pages/Expenses'
 import Accounts from './pages/Accounts'
 import Followups from './pages/Followups'
-import Documents from './pages/Documents'
 import Settings from './pages/Settings'
 import SearchPage from './pages/Search'
 
@@ -61,11 +58,17 @@ export default function App() {
           <Route path="/invoices/:id/edit" element={<InvoiceBuilder />} />
           <Route path="/invoices/:id/preview" element={<InvoicePreview />} />
 
-          <Route path="/payments" element={<Payments />} />
-          <Route path="/expenses" element={<Expenses />} />
+          {/* Accounts is the financial workspace: payments, expenses and the
+              transaction ledger are tabs inside it rather than separate pages. */}
           <Route path="/accounts" element={<Accounts />} />
+          <Route path="/accounts/:tab" element={<Accounts />} />
+
+          {/* Former top-level routes — kept so existing deep links resolve. */}
+          <Route path="/payments" element={<Navigate to="/accounts/payments" replace />} />
+          <Route path="/expenses" element={<Navigate to="/accounts/expenses" replace />} />
+          <Route path="/documents" element={<Navigate to="/quotations" replace />} />
+
           <Route path="/followups" element={<Followups />} />
-          <Route path="/documents" element={<Documents />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/search" element={<SearchPage />} />
         </Route>

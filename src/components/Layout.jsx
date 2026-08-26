@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Users, Hammer, FileText, ReceiptIndianRupee, Wallet, TrendingDown,
-  Landmark, BellRing, FolderOpen, Settings as SettingsIcon, Search, Menu, X, LogOut, Plus,
+  Landmark, BellRing, Settings as SettingsIcon, Search, Menu, X, LogOut, Plus,
+  ChevronDown, ArrowLeftRight,
 } from 'lucide-react'
 import { useStore } from '../lib/useStore'
 import { followups } from '../lib/calc'
@@ -11,17 +12,38 @@ import { cn } from '../lib/utils'
 import { initials as _i } from '../lib/format'
 import { Button } from './ui/button'
 
+/**
+ * Two of the entries are collapsible groups. `prefixes` decides when a group
+ * counts as active (and so auto-expands); the children are ordinary routes, so
+ * every underlying deep link keeps working exactly as before.
+ */
 const NAV = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/clients', label: 'Clients', icon: Users },
   { to: '/projects', label: 'Projects', icon: Hammer },
-  { to: '/quotations', label: 'Quotations', icon: FileText },
-  { to: '/invoices', label: 'Invoices', icon: ReceiptIndianRupee },
-  { to: '/payments', label: 'Payments', icon: Wallet },
-  { to: '/expenses', label: 'Expenses', icon: TrendingDown },
-  { to: '/accounts', label: 'Accounts', icon: Landmark },
-  { to: '/followups', label: 'Followups', icon: BellRing, badge: 'followups' },
-  { to: '/documents', label: 'Documents', icon: FolderOpen },
+  {
+    key: 'billing',
+    label: 'Billing',
+    icon: FileText,
+    prefixes: ['/quotations', '/invoices'],
+    children: [
+      { to: '/quotations', label: 'Quotations', icon: FileText },
+      { to: '/invoices', label: 'Invoices', icon: ReceiptIndianRupee },
+    ],
+  },
+  {
+    key: 'accounts',
+    label: 'Accounts',
+    icon: Landmark,
+    prefixes: ['/accounts'],
+    children: [
+      { to: '/accounts', label: 'Financial Overview', icon: Landmark, end: true },
+      { to: '/accounts/payments', label: 'Payments', icon: Wallet },
+      { to: '/accounts/expenses', label: 'Expenses', icon: TrendingDown },
+      { to: '/accounts/ledger', label: 'Ledger / Transactions', icon: ArrowLeftRight },
+    ],
+  },
+  { to: '/followups', label: 'Follow-ups', icon: BellRing, badge: 'followups' },
   { to: '/settings', label: 'Settings', icon: SettingsIcon },
 ]
 
@@ -29,40 +51,127 @@ const MOBILE_NAV = [
   { to: '/', label: 'Home', icon: LayoutDashboard, end: true },
   { to: '/clients', label: 'Clients', icon: Users },
   { to: '/quotations/new', label: 'New', icon: Plus, primary: true },
-  { to: '/invoices', label: 'Invoices', icon: ReceiptIndianRupee },
+  { to: '/accounts', label: 'Accounts', icon: Landmark },
   { to: '/followups', label: 'Follow', icon: BellRing, badge: 'followups' },
 ]
 
+const isGroupActive = (group, pathname) =>
+  group.prefixes.some((p) => pathname === p || pathname.startsWith(`${p}/`))
+
+const linkClass = (isActive, compact) =>
+  cn(
+    'group relative flex h-10 items-center gap-3 rounded-xl pl-3.5 pr-2.5 text-[13.5px] font-semibold transition-all duration-150',
+    isActive
+      ? 'bg-white/[0.12] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]'
+      : 'text-navy-200 hover:bg-white/[0.07] hover:text-white',
+    compact && 'h-9 text-[13px]',
+  )
+
+const ActiveBar = ({ show }) => (
+  <span
+    className={cn(
+      'absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-amber-400 transition-opacity',
+      show ? 'opacity-100' : 'opacity-0',
+    )}
+  />
+)
+
 function NavItems({ counts, onNavigate, compact }) {
+  const { pathname } = useLocation()
+  const [openGroups, setOpenGroups] = useState({})
+
+  // Whichever group owns the current route opens itself; anything the user
+  // opened or closed by hand stays that way.
+  useEffect(() => {
+    const active = {}
+    NAV.forEach((n) => {
+      if (n.children && isGroupActive(n, pathname)) active[n.key] = true
+    })
+    if (Object.keys(active).length) setOpenGroups((prev) => ({ ...prev, ...active }))
+  }, [pathname])
+
   return (
     <nav className="space-y-0.5">
       {NAV.map((n) => {
         const Icon = n.icon
         const count = n.badge ? counts[n.badge] : 0
+
+        if (n.children) {
+          const groupActive = isGroupActive(n, pathname)
+          const expanded = openGroups[n.key] ?? groupActive
+          return (
+            <div key={n.key}>
+              <button
+                type="button"
+                aria-expanded={expanded}
+                onClick={() => setOpenGroups((prev) => ({ ...prev, [n.key]: !expanded }))}
+                className={cn(linkClass(groupActive && !expanded, compact), 'w-full text-left')}
+              >
+                <ActiveBar show={groupActive && !expanded} />
+                <Icon
+                  className={cn(
+                    'h-[17px] w-[17px] shrink-0 transition-colors',
+                    groupActive ? 'text-white' : 'text-navy-300 group-hover:text-white',
+                  )}
+                />
+                <span className="flex-1 truncate">{n.label}</span>
+                <ChevronDown
+                  className={cn(
+                    'h-4 w-4 shrink-0 text-navy-300 transition-transform duration-200 group-hover:text-white',
+                    expanded && 'rotate-180',
+                  )}
+                />
+              </button>
+
+              <div
+                className={cn(
+                  'grid transition-all duration-200 ease-out',
+                  expanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0',
+                )}
+              >
+                <div className="overflow-hidden">
+                  <div className="ml-[22px] mt-0.5 space-y-0.5 border-l border-white/10 pl-2.5">
+                    {n.children.map((c) => {
+                      const CIcon = c.icon
+                      return (
+                        <NavLink
+                          key={c.to}
+                          to={c.to}
+                          end={c.end}
+                          onClick={onNavigate}
+                          tabIndex={expanded ? undefined : -1}
+                          className={({ isActive }) =>
+                            cn(
+                              'flex h-9 items-center gap-2.5 rounded-lg px-2.5 text-[13px] font-semibold transition-colors',
+                              isActive
+                                ? 'bg-white/[0.12] text-white'
+                                : 'text-navy-300 hover:bg-white/[0.07] hover:text-white',
+                            )
+                          }
+                        >
+                          {CIcon && <CIcon className="h-[15px] w-[15px] shrink-0" />}
+                          <span className="flex-1 truncate">{c.label}</span>
+                        </NavLink>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )
+        }
+
         return (
           <NavLink
             key={n.to}
             to={n.to}
             end={n.end}
             onClick={onNavigate}
-            className={({ isActive }) =>
-              cn(
-                'group relative flex h-10 items-center gap-3 rounded-xl pl-3.5 pr-2.5 text-[13.5px] font-semibold transition-all duration-150',
-                isActive
-                  ? 'bg-white/12 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]'
-                  : 'text-navy-200 hover:bg-white/[0.07] hover:text-white',
-                compact && 'h-9 text-[13px]',
-              )
-            }
+            className={({ isActive }) => linkClass(isActive, compact)}
           >
             {({ isActive }) => (
               <>
-                <span
-                  className={cn(
-                    'absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-amber-400 transition-opacity',
-                    isActive ? 'opacity-100' : 'opacity-0',
-                  )}
-                />
+                <ActiveBar show={isActive} />
                 <Icon className={cn('h-[17px] w-[17px] shrink-0 transition-colors', isActive ? 'text-white' : 'text-navy-300 group-hover:text-white')} />
                 <span className="flex-1 truncate">{n.label}</span>
                 {count > 0 && (

@@ -115,13 +115,13 @@ export default function SearchPage() {
           <Section
             title="Payments" icon={Wallet} items={results.payments}
             render={(p) => (
-              <Row key={p.id} to="/payments" primary={`${p.id} — ${clientName(p.clientId)}`} secondary={`${formatDate(p.date)} · ${p.method}${p.reference ? ` · ${p.reference}` : ''}`} right={formatINR(p.amount)} />
+              <Row key={p.id} to="/accounts/payments" primary={`${p.id} — ${clientName(p.clientId)}`} secondary={`${formatDate(p.date)} · ${p.method}${p.reference ? ` · ${p.reference}` : ''}`} right={formatINR(p.amount)} />
             )}
           />
           <Section
             title="Expenses" icon={TrendingDown} items={results.expenses}
             render={(e) => (
-              <Row key={e.id} to="/expenses" primary={e.description} secondary={`${formatDate(e.date)} · ${e.category}${e.vendor ? ` · ${e.vendor}` : ''}`} right={formatINR(e.amount)} />
+              <Row key={e.id} to="/accounts/expenses" primary={e.description} secondary={`${formatDate(e.date)} · ${e.category}${e.vendor ? ` · ${e.vendor}` : ''}`} right={formatINR(e.amount)} />
             )}
           />
         </div>

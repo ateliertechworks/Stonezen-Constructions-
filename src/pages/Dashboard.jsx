@@ -44,7 +44,7 @@ export default function Dashboard() {
             {db.settings.company.name} · {a.activeProjects} active project{a.activeProjects === 1 ? '' : 's'}
           </p>
         </div>
-        <Button size="sm" className="ml-auto" onClick={() => navigate('/payments')}>
+        <Button size="sm" className="ml-auto" onClick={() => navigate('/accounts/payments')}>
           <Wallet /> Record Payment
         </Button>
       </div>
@@ -54,7 +54,7 @@ export default function Dashboard() {
         <StatCard
           label="Total Revenue" value={formatINRCompact(a.totalRevenue)}
           sub={`${db.payments.length} payments received`} icon={IndianRupee} tone="green"
-          onClick={() => navigate('/payments')}
+          onClick={() => navigate('/accounts/payments')}
         />
         <StatCard
           label="Net Profit" value={formatINRCompact(a.netProfit)}

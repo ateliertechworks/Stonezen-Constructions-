@@ -25,7 +25,8 @@ const CATEGORY_TONE = {
   Fuel: 'amber', Miscellaneous: 'slate',
 }
 
-export default function Expenses() {
+/** `embedded` renders this inside the Accounts workspace, which supplies its own page header. */
+export default function Expenses({ embedded = false }) {
   const db = useStore()
   const [q, setQ] = useState('')
   const [category, setCategory] = useState('All')
@@ -61,16 +62,28 @@ export default function Expenses() {
 
   return (
     <div>
-      <PageHeader
-        icon={TrendingDown}
-        title="Expenses"
-        subtitle={`${db.expenses.length} entries · ${formatINR(stats.total)} booked`}
-        actions={
-          <Button size="sm" onClick={() => setDialog({ open: true, expense: null })}>
+      {embedded ? (
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <p className="text-[13px] text-slate-500">
+            {db.expenses.length} entries ·{' '}
+            <span className="font-semibold text-slate-800">{formatINR(stats.total)}</span> booked
+          </p>
+          <Button size="sm" className="ml-auto" onClick={() => setDialog({ open: true, expense: null })}>
             <Plus /> Record Expense
           </Button>
-        }
-      />
+        </div>
+      ) : (
+        <PageHeader
+          icon={TrendingDown}
+          title="Expenses"
+          subtitle={`${db.expenses.length} entries · ${formatINR(stats.total)} booked`}
+          actions={
+            <Button size="sm" onClick={() => setDialog({ open: true, expense: null })}>
+              <Plus /> Record Expense
+            </Button>
+          }
+        />
+      )}
 
       <div className="mb-3 grid grid-cols-2 gap-2.5 lg:grid-cols-4">
         <StatCard label="Total Expenses" value={formatINRCompact(stats.total)} icon={TrendingDown} tone="amber" />

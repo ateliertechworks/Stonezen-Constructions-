@@ -170,7 +170,7 @@ export function ledgerForClient(db, client) {
       rows.push({
         date: p.date, type: 'Payment', ref: p.id,
         particulars: `${p.notes || 'Payment received'}${p.reference ? ` (${p.reference})` : ''}`,
-        debit: 0, credit: num(p.amount), link: '/payments',
+        debit: 0, credit: num(p.amount), link: '/accounts/payments',
       })
     })
   rows.sort((a, b) => (a.date === b.date ? (a.type === 'Invoice' ? -1 : 1) : a.date < b.date ? -1 : 1))
