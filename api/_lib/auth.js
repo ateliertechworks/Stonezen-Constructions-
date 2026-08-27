@@ -14,6 +14,7 @@
  */
 import { createHmac, randomBytes, scrypt as _scrypt, timingSafeEqual } from 'node:crypto'
 import { promisify } from 'node:util'
+import { configError } from './db.js'
 
 const scrypt = promisify(_scrypt)
 
@@ -58,7 +59,12 @@ const b64url = (buf) => Buffer.from(buf).toString('base64url')
 function secret() {
   const s = process.env.AUTH_SECRET
   if (!s || s.length < 16) {
-    throw Object.assign(new Error('AUTH_SECRET is not configured'), { statusCode: 503 })
+    // Reached only after the password already checked out, so a deployment
+    // missing this key looks exactly like a wrong password unless it says so.
+    throw configError(
+      'no_auth_secret',
+      'The server cannot issue a session: its token signing key is missing or too short.',
+    )
   }
   return s
 }

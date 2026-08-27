@@ -102,12 +102,46 @@ npm run db:down    # stop it — data survives in the stonezen-pgdata volume
 Already have a Postgres you like? Point `DATABASE_URL` at it, apply the schema
 with `psql`, and skip these scripts entirely.
 
-Check the wiring at any time:
+Check the wiring at any time — locally or against a deployment:
 
 ```bash
-curl -s localhost:5173/api/health
-# {"ok":true,"api":"up","database":"connected",…}
+npm run db:doctor                 # can this database serve sign-in?
+curl -s localhost:5173/api/health # {"ok":true,"status":"ready",…}
 ```
+
+### When sign-in fails
+
+`/api/health` and a failed sign-in report the same `status` / `code`, so one
+request identifies the problem without reading any logs:
+
+| code | meaning | fix |
+|---|---|---|
+| `no_database_url` | `DATABASE_URL` is not set on that deployment | set it in Vercel → Settings → Environment Variables, then redeploy |
+| `db_local_url` | it points at `localhost` | **Vercel cannot reach your machine.** Point it at a hosted Postgres (Neon) |
+| `db_unreachable` | nothing answers at that address | check host/port and that the server accepts external connections |
+| `db_auth_failed` | wrong database user or password | check the credentials inside `DATABASE_URL` |
+| `database_missing` | the server has no such database | create it, or fix the name at the end of the URL |
+| `schema_missing` | connected, but no tables | `psql "$DATABASE_URL" -f db/schema.sql` |
+| `no_auth_secret` | `AUTH_SECRET` missing or under 16 chars | set it in the same place, then redeploy |
+
+A wrong password stays a plain `401 Incorrect email or password.` — it carries
+no `code`, so a real rejection is never confused with a broken deployment.
+
+### Deploying
+
+Vercel runs each `api/` file as a serverless function with its own loopback
+interface, so a `localhost` database is unreachable from it no matter what is
+in `.env.local`. A deployment needs:
+
+1. A **hosted** Postgres — Neon's pooled connection string, `?sslmode=require`.
+2. The schema applied to it: `psql "$DATABASE_URL" -f db/schema.sql`.
+3. An account seeded in it: `DATABASE_URL='…' node db/seed-admin.mjs "Name" you@example.com 'password'`.
+4. `DATABASE_URL` and `AUTH_SECRET` set in Vercel → Settings → Environment
+   Variables (Production **and** Preview), then a redeploy — environment
+   changes do not apply to already-built deployments.
+
+Confirm 1–3 before deploying with `DATABASE_URL='…' npm run db:doctor`, and
+confirm 4 afterwards with `curl -s https://your-app.vercel.app/api/health`.
 
 ### Configuration
 

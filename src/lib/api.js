@@ -34,6 +34,8 @@ export async function apiFetch(path, { method = 'GET', body, token, signal } = {
     const err = new Error(data?.error || `Request failed (${res.status})`)
     err.status = res.status
     err.notJson = notJson
+    // Set by the API on a deployment problem it could name (see api/_lib/db.js).
+    err.code = data?.code
     throw err
   }
   return data
@@ -46,8 +48,14 @@ export async function apiFetch(path, { method = 'GET', body, token, signal } = {
  * Covers all the ways a missing backend shows up:
  *   - TypeError            fetch never completed (server down, CORS)
  *   - 404 / 405            nothing mounted at the path (plain `vite` dev server)
- *   - 503                  handler ran but DATABASE_URL / AUTH_SECRET is missing
+ *   - 503 no_database_url  the handler ran but this install has no database
  *   - non-JSON body        SPA fallback returned index.html
+ *
+ * A 503 that names any other cause — an unreachable database, an unapplied
+ * schema, a missing signing key — is a configured backend that is broken, not
+ * an absent one. Treating those as "no API" is how a real failure ends up
+ * silently signing someone in against the local demo account instead of being
+ * reported, so they are deliberately excluded here.
  *
  * Callers must still gate this behind a dev-only flag: in production a missing
  * API is an outage to surface, never a reason to accept local credentials.
@@ -55,5 +63,6 @@ export async function apiFetch(path, { method = 'GET', body, token, signal } = {
 export function isApiUnavailable(err) {
   if (err instanceof TypeError) return true
   if (err?.notJson) return true
-  return err?.status === 404 || err?.status === 405 || err?.status === 503
+  if (err?.status === 503) return !err.code || err.code === 'no_database_url'
+  return err?.status === 404 || err?.status === 405
 }

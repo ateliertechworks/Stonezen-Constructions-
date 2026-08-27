@@ -10,6 +10,7 @@
     "db:psql": "node db/local.mjs psql",
     "db:schema": "node db/local.mjs schema",
     "db:seed": "node --env-file=.env.local db/seed-admin.mjs",
+    "db:doctor": "node --env-file-if-exists=.env.local db/doctor.mjs",
     "build": "vite build",
     "lint": "oxlint",
     "preview": "vite preview"
