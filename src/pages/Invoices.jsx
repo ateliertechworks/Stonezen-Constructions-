@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   ReceiptIndianRupee, Plus, Search, Pencil, Trash2, Download, Eye, Wallet, Clock, IndianRupee,
+  AlertTriangle,
 } from 'lucide-react'
 
 import { useStore } from '../lib/useStore'
@@ -15,6 +16,7 @@ import PageHeader from '../components/ui/PageHeader'
 import EmptyState from '../components/ui/EmptyState'
 import StatusBadge from '../components/ui/StatusBadge'
 import StatCard from '../components/ui/StatCard'
+import MobileOverview from '../components/ui/MobileOverview'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
 import PaymentDialog from '../components/forms/PaymentDialog'
 import { Button } from '../components/ui/button'
@@ -65,6 +67,15 @@ export default function Invoices() {
     }
   }, [db])
 
+  /* One source of truth for the four headline figures — the desktop cards and
+     the phone panel below render this same list, so they cannot disagree. */
+  const overview = useMemo(() => [
+    { key: 'invoiced', label: 'Total Invoiced', value: formatINRCompact(stats.invoiced), icon: ReceiptIndianRupee, tone: 'brand' },
+    { key: 'received', label: 'Received', value: formatINRCompact(stats.received), icon: IndianRupee, tone: 'green' },
+    { key: 'outstanding', label: 'Outstanding', value: formatINRCompact(stats.outstanding), icon: Clock, tone: 'amber' },
+    { key: 'overdue', label: 'Overdue', value: formatINRCompact(stats.overdueValue), icon: AlertTriangle, tone: 'red' },
+  ], [stats])
+
   return (
     <div>
       <PageHeader
@@ -78,7 +89,11 @@ export default function Invoices() {
         }
       />
 
-      <div className="mb-3 grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+      {/* Phones get the compact panel; sm and up keep the existing cards
+          exactly as they were — 2 columns on tablet, 4 on desktop. */}
+      <MobileOverview title="Invoice Overview" items={overview} />
+
+      <div className="mb-3 hidden grid-cols-2 gap-2.5 sm:grid lg:grid-cols-4">
         <StatCard label="Total Invoiced" value={formatINRCompact(stats.invoiced)} icon={ReceiptIndianRupee} tone="brand" />
         <StatCard label="Received" value={formatINRCompact(stats.received)} icon={IndianRupee} tone="green" />
         <StatCard label="Outstanding" value={formatINRCompact(stats.outstanding)} icon={Clock} tone="amber" />

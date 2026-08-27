@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Hammer, Plus, Search, Pencil, Trash2, User, Calendar, LayoutGrid, List } from 'lucide-react'
+import {
+  Hammer, Plus, Search, Pencil, Trash2, User, Calendar, LayoutGrid, List,
+  CheckCircle2, TrendingDown, TrendingUp,
+} from 'lucide-react'
 
 import { useStore } from '../lib/useStore'
 import { projectSummary } from '../lib/calc'
@@ -18,7 +21,7 @@ import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { SimpleSelect } from '../components/ui/select'
 import { TableWrap, Table, THead, TBody, TR, TH, TD } from '../components/ui/table'
-import { cn } from '../lib/utils'
+import { cn, STAT_TONES } from '../lib/utils'
 
 /** Remembers the chosen layout between visits; first-time users get the card grid. */
 const VIEW_KEY = 'stonezen_projects_view_v1'
@@ -30,6 +33,44 @@ const readView = () => {
   } catch {
     return 'grid'
   }
+}
+
+/**
+ * Phone-only condensation of the four stat cards.
+ *
+ * Same figures, same tones, one panel: a 2x2 grid of cards spends most of its
+ * height on card chrome, and four labelled rows read far faster on a narrow
+ * screen. Rows are a fixed 36px so the four of them scan as a column; the
+ * values are right-aligned and tabular so the digits line up.
+ *
+ * Profit is the bottom line rather than another input, so it sits under a
+ * hairline and takes the profit colour this page already uses on the project
+ * cards and in the list view — emerald when positive, red when not.
+ */
+function FinancialOverview({ items }) {
+  return (
+    <section className="mb-3 rounded-2xl border border-slate-200 bg-white px-3 py-2 shadow-card sm:hidden">
+      <h2 className="pb-1 text-[14px] font-semibold leading-5 text-slate-900">Financial Overview</h2>
+      <dl>
+        {items.map(({ key, label, value, icon: Icon, tone, valueClass, ruled }) => (
+          <div
+            key={key}
+            className={cn('flex h-9 items-center gap-2.5', ruled && 'border-t border-slate-100')}
+          >
+            <span className={cn('flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-lg', STAT_TONES[tone])}>
+              <Icon className="h-[17px] w-[17px]" />
+            </span>
+            <dt className={cn('min-w-0 flex-1 truncate text-[13.5px] text-slate-600', ruled && 'font-semibold text-slate-700')}>
+              {label}
+            </dt>
+            <dd className={cn('shrink-0 text-[15px] font-bold tabular-nums', valueClass || 'text-slate-900')}>
+              {value}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </section>
+  )
 }
 
 export default function Projects() {
@@ -68,10 +109,31 @@ export default function Projects() {
     return { value, revenue, expenses, profit: revenue - expenses }
   }, [db])
 
+  /* One source of truth for the four figures — the desktop cards and the mobile
+     panel below render this same list, so they can never disagree. */
+  const finance = useMemo(() => {
+    const up = totals.profit >= 0
+    return [
+      { key: 'value', label: 'Contracted Value', value: formatINRCompact(totals.value), icon: Hammer, tone: 'brand' },
+      { key: 'revenue', label: 'Collected', value: formatINRCompact(totals.revenue), icon: CheckCircle2, tone: 'green' },
+      { key: 'expenses', label: 'Site Expenses', value: formatINRCompact(totals.expenses), icon: TrendingDown, tone: 'amber' },
+      {
+        key: 'profit',
+        label: 'Profit',
+        value: formatINRCompact(totals.profit),
+        icon: TrendingUp,
+        tone: up ? 'green' : 'red',
+        valueClass: up ? 'text-emerald-600' : 'text-red-600',
+        ruled: true,
+      },
+    ]
+  }, [totals])
+
   return (
     <div>
       <PageHeader
         icon={Hammer}
+        className="mb-3 sm:mb-4"
         title="Projects"
         subtitle={`${db.projects.length} projects · ${db.projects.filter((p) => p.status === 'In Progress').length} in progress`}
         actions={
@@ -81,7 +143,11 @@ export default function Projects() {
         }
       />
 
-      <div className="mb-3 grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+      {/* Phones get the compact panel; sm and up keep the existing cards
+          exactly as they were — 2 columns on tablet, 4 on desktop. */}
+      <FinancialOverview items={finance} />
+
+      <div className="mb-3 hidden grid-cols-2 gap-2.5 sm:grid lg:grid-cols-4">
         <StatCard label="Contracted Value" value={formatINRCompact(totals.value)} icon={Hammer} tone="brand" />
         <StatCard label="Collected" value={formatINRCompact(totals.revenue)} tone="green" />
         <StatCard label="Site Expenses" value={formatINRCompact(totals.expenses)} tone="amber" />
@@ -89,7 +155,10 @@ export default function Projects() {
       </div>
 
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        <div className="relative min-w-[200px] flex-1">
+        {/* On phones the search takes its own line so the status filter and the
+            view toggle pair up underneath it, rather than the toggle wrapping
+            alone onto a mostly empty row. flex-1 resumes at sm. */}
+        <div className="relative min-w-[200px] flex-1 basis-full sm:basis-0">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search projects, sites or clients…" className="pl-9" />
         </div>

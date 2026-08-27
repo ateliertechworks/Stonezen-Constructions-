@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FileText, Plus, Search, Pencil, Trash2, Download, Eye, BellRing, ReceiptIndianRupee } from 'lucide-react'
+import { FileText, Plus, Search, Pencil, Trash2, Download, Eye, BellRing, ReceiptIndianRupee, Percent } from 'lucide-react'
 
 import { useStore } from '../lib/useStore'
 import { quotationTotals } from '../lib/calc'
@@ -13,6 +13,7 @@ import PageHeader from '../components/ui/PageHeader'
 import EmptyState from '../components/ui/EmptyState'
 import StatusBadge from '../components/ui/StatusBadge'
 import StatCard from '../components/ui/StatCard'
+import MobileOverview from '../components/ui/MobileOverview'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
@@ -60,6 +61,15 @@ export default function Quotations() {
     }
   }, [db])
 
+  /* One source of truth for the four headline figures — the desktop cards and
+     the phone panel below render this same list, so they cannot disagree. */
+  const overview = useMemo(() => [
+    { key: 'total', label: 'Total Quoted', value: formatINRCompact(stats.total), icon: FileText, tone: 'brand' },
+    { key: 'sent', label: 'Awaiting Reply', value: stats.sent, icon: BellRing, tone: 'amber' },
+    { key: 'accepted', label: 'Accepted', value: stats.accepted, icon: ReceiptIndianRupee, tone: 'green' },
+    { key: 'winRate', label: 'Win Rate', value: `${stats.winRate.toFixed(0)}%`, icon: Percent, tone: 'blue' },
+  ], [stats])
+
   return (
     <div>
       <PageHeader
@@ -73,7 +83,11 @@ export default function Quotations() {
         }
       />
 
-      <div className="mb-3 grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+      {/* Phones get the compact panel; sm and up keep the existing cards
+          exactly as they were — 2 columns on tablet, 4 on desktop. */}
+      <MobileOverview title="Quotation Overview" items={overview} />
+
+      <div className="mb-3 hidden grid-cols-2 gap-2.5 sm:grid lg:grid-cols-4">
         <StatCard label="Total Quoted" value={formatINRCompact(stats.total)} sub={`${db.quotations.length} documents`} icon={FileText} tone="brand" />
         <StatCard label="Awaiting Reply" value={stats.sent} sub={formatINRCompact(stats.sentValue)} icon={BellRing} tone="amber" onClick={() => setStatus('Sent')} />
         <StatCard label="Accepted" value={stats.accepted} sub={formatINRCompact(stats.acceptedValue)} icon={ReceiptIndianRupee} tone="green" onClick={() => setStatus('Accepted')} />

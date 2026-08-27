@@ -11,6 +11,7 @@ import { getSession, logout } from '../lib/auth'
 import { cn } from '../lib/utils'
 import { initials as _i } from '../lib/format'
 import { Button } from './ui/button'
+import logoImg from '../../image/logo.png'
 
 /**
  * Two of the entries are collapsible groups. `prefixes` decides when a group
@@ -231,8 +232,11 @@ export default function Layout() {
       />
 
       <div className="relative flex items-center gap-2.5 px-4 py-5">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white text-[15px] font-extrabold tracking-tighter text-brand shadow-md">
-          SZ
+        <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white shadow-md">
+          {/* The official mark replaces the old "SZ" initials. object-contain
+              keeps its aspect ratio inside the same 36px box, so nothing in
+              the header shifts. */}
+          <img src={logoImg} alt="Stonezen OS" className="h-full w-full object-contain" />
         </div>
         <div className="min-w-0">
           <p className="truncate text-[14px] font-bold leading-tight text-white">Stonezen OS</p>

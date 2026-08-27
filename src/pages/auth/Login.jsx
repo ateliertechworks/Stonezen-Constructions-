@@ -15,10 +15,11 @@ export default function Login() {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault()
     setBusy(true)
-    const res = login(email, password)
+    setError('')
+    const res = await login(email, password)
     setBusy(false)
     if (!res.ok) return setError(res.error)
     navigate(location.state?.from || '/', { replace: true })
@@ -28,6 +29,11 @@ export default function Login() {
     <AuthShell
       title="Sign in"
       subtitle="Welcome back. Pick up where you left off."
+      aside={
+        <p className="glass-note rounded-xl border border-white/25 bg-white/[0.12] px-3 py-2 text-center text-[11.5px] text-slate-500 backdrop-blur-[10px] lg:rounded-lg lg:border-0 lg:bg-slate-50 lg:backdrop-blur-none">
+          Demo account is pre-filled — data is stored locally in this browser.
+        </p>
+      }
       footer={
         <>
           Don&apos;t have an account?{' '}
@@ -58,9 +64,6 @@ export default function Login() {
         <Button type="submit" size="lg" className="w-full" disabled={busy}>
           <LogIn /> Sign in
         </Button>
-        <p className="rounded-lg bg-slate-50 px-3 py-2 text-center text-[11.5px] text-slate-500">
-          Demo account is pre-filled — data is stored locally in this browser.
-        </p>
       </form>
     </AuthShell>
   )

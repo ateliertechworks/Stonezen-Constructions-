@@ -11,13 +11,17 @@ export default function Register() {
   const navigate = useNavigate()
   const [form, setForm] = useState({ name: '', email: '', password: '', confirm: '' })
   const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
 
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault()
     if (form.password.length < 6) return setError('Password must be at least 6 characters.')
     if (form.password !== form.confirm) return setError('The two passwords do not match.')
-    const res = register(form)
+    setBusy(true)
+    setError('')
+    const res = await register(form)
+    setBusy(false)
     if (!res.ok) return setError(res.error)
     navigate('/', { replace: true })
   }
@@ -56,7 +60,7 @@ export default function Register() {
             <Input type="password" value={form.confirm} onChange={set('confirm')} required autoComplete="new-password" />
           </Field>
         </div>
-        <Button type="submit" size="lg" className="w-full">
+        <Button type="submit" size="lg" className="w-full" disabled={busy}>
           <UserPlus /> Create account
         </Button>
       </form>

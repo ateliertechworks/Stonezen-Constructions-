@@ -31,6 +31,78 @@
   .scroll-x { @apply overflow-x-auto; -webkit-overflow-scrolling: touch; }
 }
 
+/* ---------------------------------------------------------------------------
+   Mobile glassmorphism for the auth screens.
+
+   Scoped to `.auth-glass` and to widths below Tailwind's lg breakpoint, so it
+   restyles only the sign-in/register/reset screens on phones and tablets. The
+   shared Input/Label components are left untouched — every other CRM page keeps
+   its own styling, and desktop auth is unaffected.
+--------------------------------------------------------------------------- */
+@media (max-width: 1023.98px) {
+  /* 100vh on a phone is the address-bar-hidden height, so a screen that fits
+     still gets a stray scroll. svh is the address-bar-shown height — the one
+     that is always visible. Plain CSS after @tailwind utilities, so it beats
+     .min-h-screen at equal specificity. */
+  .auth-root { min-height: 100vh; }
+  @supports (min-height: 100svh) {
+    .auth-root { min-height: 100svh; }
+  }
+  /* The floating sheet the form sits on. Saturation lifts the photo behind it
+     so the glass reads as glass rather than as grey film. */
+  .auth-glass .glass-panel {
+    -webkit-backdrop-filter: blur(14px) saturate(150%);
+    backdrop-filter: blur(14px) saturate(150%);
+  }
+
+  .auth-glass h1 { color: #fff; text-shadow: 0 1px 12px rgba(15, 23, 42, 0.35); }
+  .auth-glass label { color: rgba(255, 255, 255, 0.92); }
+
+  .auth-glass .glass-sub,
+  .auth-glass .glass-note { color: rgba(255, 255, 255, 0.78); }
+
+  .auth-glass input:not([type='checkbox']):not([type='radio']) {
+    background-color: rgba(255, 255, 255, 0.16);
+    border-color: rgba(255, 255, 255, 0.30);
+    color: #fff;
+    /* inner highlight along the top edge */
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+    /* Comfortable thumb target, and 16px so iOS Safari does not zoom the
+       viewport on focus — that zoom is what introduces horizontal scroll. */
+    height: 2.75rem;
+    font-size: 16px;
+  }
+  .auth-glass input::placeholder { color: rgba(255, 255, 255, 0.55); }
+  .auth-glass input:focus-visible {
+    border-color: rgba(255, 255, 255, 0.55);
+    background-color: rgba(255, 255, 255, 0.2);
+  }
+
+  /* Chrome paints autofilled fields opaque, which would punch a solid block
+     through the glass. Pin the colours and defer the background swap. */
+  .auth-glass input:-webkit-autofill,
+  .auth-glass input:-webkit-autofill:hover,
+  .auth-glass input:-webkit-autofill:focus {
+    -webkit-text-fill-color: #fff;
+    caret-color: #fff;
+    transition: background-color 600000s 0s;
+  }
+
+  .auth-glass a { color: #dbe7ff; }
+  .auth-glass a:hover { color: #fff; }
+}
+
+/* Clear of the home indicator / gesture bar on notched phones. Split in two so
+   each keeps the py-6 / sm:py-10 the panel already has and only adds the inset. */
+@media (max-width: 639.98px) {
+  .auth-glass { padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px)); }
+}
+@media (min-width: 640px) and (max-width: 1023.98px) {
+  .auth-glass { padding-bottom: calc(2.5rem + env(safe-area-inset-bottom, 0px)); }
+}
+
 /* Document preview paper */
 .doc-paper {
   width: 210mm;

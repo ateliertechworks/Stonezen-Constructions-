@@ -9,6 +9,21 @@ export function uid(prefix = 'id') {
   return `${prefix}_${Math.random().toString(36).slice(2, 9)}${Date.now().toString(36).slice(-4)}`
 }
 
+/**
+ * Icon-chip palette shared by StatCard and by any page that renders the same
+ * figures in a different shell — e.g. the mobile Financial Overview on
+ * Projects. Kept here rather than in StatCard so importing it does not break
+ * that file's fast-refresh boundary.
+ */
+export const STAT_TONES = {
+  brand: 'bg-navy-50 text-brand',
+  green: 'bg-emerald-50 text-emerald-600',
+  amber: 'bg-amber-50 text-amber-600',
+  red: 'bg-red-50 text-red-600',
+  blue: 'bg-blue-50 text-blue-600',
+  purple: 'bg-violet-50 text-violet-600',
+}
+
 export const NONE = '__none__'
 
 /** Radix Select cannot hold an empty-string value; map null <-> sentinel. */

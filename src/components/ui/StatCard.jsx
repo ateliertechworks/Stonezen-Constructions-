@@ -1,14 +1,5 @@
 import { TrendingUp, TrendingDown } from 'lucide-react'
-import { cn } from '../../lib/utils'
-
-const TONES = {
-  brand: 'bg-navy-50 text-brand',
-  green: 'bg-emerald-50 text-emerald-600',
-  amber: 'bg-amber-50 text-amber-600',
-  red: 'bg-red-50 text-red-600',
-  blue: 'bg-blue-50 text-blue-600',
-  purple: 'bg-violet-50 text-violet-600',
-}
+import { cn, STAT_TONES as TONES } from '../../lib/utils'
 
 export default function StatCard({ label, value, sub, icon: Icon, tone = 'brand', trend, className, onClick }) {
   const Comp = onClick ? 'button' : 'div'
