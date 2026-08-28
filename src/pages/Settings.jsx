@@ -7,7 +7,7 @@ import {
 } from 'lucide-react'
 
 import { useStore } from '../lib/useStore'
-import { updateSettings, resetData, clearData, exportData, importData } from '../lib/store'
+import { updateSettings, clearData, exportData, importData } from '../lib/store'
 import {
   getSession, logout, updateProfile, changePassword, generateRecoveryCode,
   hasRecoveryCode, isRegistrationOpen, setRegistrationOpen,
@@ -35,7 +35,6 @@ export default function Settings() {
   const [docs, setDocs] = useState(db.settings.docs)
   const [profile, setProfile] = useState({ name: session?.name || '', email: session?.email || '' })
   const [savedFlag, setSavedFlag] = useState('')
-  const [confirmReset, setConfirmReset] = useState(false)
   const [confirmClear, setConfirmClear] = useState(false)
 
   // Security tab
@@ -486,9 +485,6 @@ export default function Settings() {
                 <Button variant="outline" onClick={() => fileRef.current?.click()}>
                   <Upload /> Import backup
                 </Button>
-                <Button variant="outline" onClick={() => setConfirmReset(true)}>
-                  <RotateCcw /> Restore sample data
-                </Button>
                 <Button variant="outline" className="text-red-600" onClick={() => setConfirmClear(true)}>
                   <Trash2 /> Clear all data
                 </Button>
@@ -498,17 +494,6 @@ export default function Settings() {
         </TabsContent>
       </Tabs>
 
-      <ConfirmDialog
-        open={confirmReset}
-        onOpenChange={setConfirmReset}
-        title="Restore sample data?"
-        description="Everything you have entered will be replaced with the built-in demo dataset."
-        confirmLabel="Restore sample data"
-        onConfirm={() => {
-          resetData()
-          flash('Sample data restored')
-        }}
-      />
       <ConfirmDialog
         open={confirmClear}
         onOpenChange={setConfirmClear}

@@ -31,18 +31,16 @@ const VIEWPORTS = [
   { name: '1280', width: 1280, height: 860 },
 ]
 
+// Detail routes are omitted: with no sample data there is no record to open.
+// Create a client and add its id here when auditing a populated install.
 const ROUTES = [
   ['dashboard', '/'],
   ['clients', '/clients'],
-  ['client-profile', '/clients/CL-2026-001'],
   ['projects', '/projects'],
-  ['project-detail', '/projects/PRJ-2026-001'],
   ['quotations', '/quotations'],
   ['quotation-builder', '/quotations/new'],
-  ['quotation-preview', '/quotations/QT-2026-001/preview'],
   ['invoices', '/invoices'],
   ['invoice-builder', '/invoices/new'],
-  ['invoice-preview', '/invoices/INV-2026-001/preview'],
   ['accounts', '/accounts'],
   ['payments', '/accounts/payments'],
   ['expenses', '/accounts/expenses'],

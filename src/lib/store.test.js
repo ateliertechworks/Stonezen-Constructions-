@@ -223,3 +223,86 @@ describe('cross-tab sync', () => {
     expect(listener).not.toHaveBeenCalled()
   })
 })
+
+/* ------------------------------------------------- clearing the demo data */
+
+describe('the sample dataset is cleared once', () => {
+  const withDemoAndReal = {
+    ...EMPTY,
+    counters: { client: 5, invoice: 5 },
+    clients: [
+      { id: 'CL-2026-001', name: 'Demo client' },
+      { id: 'CL-2026-27-001', name: 'A real client' },
+    ],
+    invoices: [{ id: 'INV-2026-004', clientId: 'CL-2026-001' }],
+    payments: [{ id: 'PAY-2026-002', amount: 5000 }],
+    expenses: [{ id: 'EXP-2026-001', amount: 900 }],
+    activities: [
+      { id: 'A1', text: 'Invoice INV-2026-004 created' },
+      { id: 'A2', text: 'Invoice INV-2026-27-001 created' },
+      { id: 'A3', text: 'Company settings updated' },
+    ],
+  }
+
+  it('starts a brand new install with nothing in it', async () => {
+    const { getState } = await freshStore()
+    const db = getState()
+    for (const c of ['clients', 'projects', 'quotations', 'invoices', 'payments', 'expenses', 'activities']) {
+      expect(db[c]).toHaveLength(0)
+    }
+  })
+
+  it('keeps the real company profile, which is not sample data', async () => {
+    const { getState } = await freshStore()
+    expect(getState().settings.company.gstin).toBe('33BOBPD4858P1ZN')
+    expect(getState().settings.banking.ifsc).toBe('FDRL0001920')
+  })
+
+  it('removes the demo records from a browser that already loaded them', async () => {
+    const { getState } = await freshStore(withDemoAndReal)
+    const db = getState()
+    expect(db.clients.map((c) => c.id)).toEqual(['CL-2026-27-001'])
+    expect(db.invoices).toHaveLength(0)
+    expect(db.payments).toHaveLength(0)
+    expect(db.expenses).toHaveLength(0)
+  })
+
+  it('never touches a record the user actually created', async () => {
+    const { getState } = await freshStore(withDemoAndReal)
+    expect(getState().clients[0].name).toBe('A real client')
+  })
+
+  it('drops activity lines that only described a demo record', async () => {
+    const { getState } = await freshStore(withDemoAndReal)
+    expect(getState().activities.map((a) => a.id)).toEqual(['A2', 'A3'])
+  })
+
+  it('restarts numbering for a collection it emptied', async () => {
+    const s = await freshStore(withDemoAndReal)
+    expect(s.nextNumber('invoice')).toBe(`INV-${s.financialYear()}-001`)
+  })
+
+  it('leaves the counter alone where real records remain', async () => {
+    const s = await freshStore(withDemoAndReal)
+    expect(s.nextNumber('client')).toBe(`CL-${s.financialYear()}-006`)
+  })
+
+  it('writes the cleaned state straight back to storage', async () => {
+    await freshStore(withDemoAndReal)
+    const stored = JSON.parse(localStorage.getItem('stonezen_crm_v1'))
+    expect(stored.invoices).toHaveLength(0)
+    expect(stored.clients).toHaveLength(1)
+  })
+
+  it('does not run a second time, so re-added records survive', async () => {
+    const s = await freshStore(withDemoAndReal)
+    // Something with a demo-shaped id entered later must not be swept away.
+    s.setState(() => ({ clients: [{ id: 'CL-2026-001', name: 'Re-entered by hand' }] }))
+
+    // A page reload: a fresh module against the same storage.
+    vi.resetModules()
+    const reloaded = await import('./store')
+    expect(reloaded.getState().clients).toHaveLength(1)
+    expect(reloaded.getState().clients[0].name).toBe('Re-entered by hand')
+  })
+})

@@ -1,9 +1,59 @@
-import { SEED, DEFAULT_SETTINGS } from './seed'
+import { SEED, DEFAULT_SETTINGS, DEMO_RECORD_IDS } from './seed'
 import { uid, sortBy } from './utils'
 
 const KEY = 'stonezen_crm_v1'
 
 const COLLECTIONS = ['clients', 'projects', 'quotations', 'invoices', 'payments', 'expenses', 'activities']
+
+const DEMO_PURGE_KEY = 'stonezen_demo_purged_v1'
+
+/** Any document reference inside an activity line, e.g. "Invoice INV-2026-004". */
+const REF_PATTERN = /\b(?:CL|PRJ|QT|INV|PAY|EXP)-\d{4}-\d{3}\b/g
+
+/**
+ * Clears the sample dataset that shipped with earlier builds.
+ *
+ * Removing it from the seed only helps a brand-new install; a browser that has
+ * already loaded it keeps its copy in localStorage forever. This drops exactly
+ * the known demo ids and nothing else, so anything genuinely entered survives.
+ * Numbers issued now use the financial-year format, so a real record cannot
+ * carry one of these ids.
+ */
+function purgeDemoRecords(s) {
+  const keep = (rows) => rows.filter((r) => !DEMO_RECORD_IDS.has(r.id))
+  const next = {
+    clients: keep(s.clients),
+    projects: keep(s.projects),
+    quotations: keep(s.quotations),
+    invoices: keep(s.invoices),
+    payments: keep(s.payments),
+    expenses: keep(s.expenses),
+    // An activity that only ever described a demo record goes with it.
+    activities: s.activities.filter((a) => {
+      const refs = String(a.text || '').match(REF_PATTERN) || []
+      return !refs.length || !refs.every((id) => DEMO_RECORD_IDS.has(id))
+    }),
+  }
+
+  const removed = COLLECTIONS.some((c) => next[c].length !== s[c].length)
+  if (!removed) return { state: s, removed: false }
+
+  // A collection left empty starts numbering again from 001.
+  const counters = { ...s.counters }
+  const TYPE_OF = {
+    clients: 'client', projects: 'project', quotations: 'quotation',
+    invoices: 'invoice', payments: 'payment', expenses: 'expense',
+  }
+  for (const [collection, type] of Object.entries(TYPE_OF)) {
+    if (next[collection].length === 0) {
+      for (const key of Object.keys(counters)) {
+        if (key === type || key.startsWith(`${type}:`)) delete counters[key]
+      }
+    }
+  }
+
+  return { state: { ...s, ...next, counters }, removed: true }
+}
 
 function emptyState() {
   return JSON.parse(JSON.stringify(SEED))
@@ -35,6 +85,16 @@ function hydrate(raw) {
 
 let state = hydrate(typeof localStorage !== 'undefined' ? localStorage.getItem(KEY) : null)
 const listeners = new Set()
+
+// Runs once per browser, right after the first hydrate.
+if (typeof localStorage !== 'undefined' && localStorage.getItem(DEMO_PURGE_KEY) !== '1') {
+  const result = purgeDemoRecords(state)
+  state = result.state
+  try {
+    localStorage.setItem(DEMO_PURGE_KEY, '1')
+    if (result.removed) localStorage.setItem(KEY, JSON.stringify(state))
+  } catch { /* storage blocked — the purge still applies to this session */ }
+}
 
 /** Set while applying a change that arrived from another tab, so we don't echo it back. */
 let applyingRemote = false
@@ -128,12 +188,6 @@ if (typeof window !== 'undefined') {
       applyingRemote = false
     }
   })
-}
-
-export function resetData() {
-  state = emptyState()
-  persist()
-  listeners.forEach((l) => l())
 }
 
 export function clearData() {

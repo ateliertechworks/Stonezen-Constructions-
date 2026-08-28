@@ -65,8 +65,15 @@ a banner rather than pretending the change was saved.
 The store (`src/lib/store.js`) exposes `getState`/`subscribe`/`setState` and is read
 through `useSyncExternalStore`, so every screen updates the moment a record changes.
 
-**Settings → Data** exports a JSON backup, imports one back, restores the sample
-dataset, or clears everything. Export regularly: clearing browser site data wipes it.
+**Settings → Data** exports a JSON backup, imports one back, or clears
+everything. Export regularly: clearing browser site data wipes it.
+
+The app ships with **no sample records** — a new install starts empty. Only the
+company profile, banking details and document defaults in `src/lib/seed.js` are
+seeded, because a quotation cannot be issued without a letterhead and a GSTIN.
+A browser that already loaded the old demo dataset clears it once on next load
+(`purgeDemoRecords` in `src/lib/store.js`), matching on the exact demo ids so
+anything genuinely entered is left alone.
 
 Deleting a client who has payments or issued invoices **archives** them instead —
 a received payment is a financial record and is never removed by a cascade.
