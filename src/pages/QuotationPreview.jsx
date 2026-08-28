@@ -84,7 +84,7 @@ export default function QuotationPreview() {
                 addActivity(`Quotation ${qt.id} marked ${v}`, 'quotation')
               }}
               options={QUOTATION_STATUSES}
-              className="w-[130px]"
+              className="min-w-0 flex-1 sm:w-[130px] sm:flex-none"
             />
             <Button size="sm" variant="outline" onClick={() => navigate(`/quotations/${qt.id}/edit`)}>
               <Pencil /> Edit
@@ -206,7 +206,7 @@ export default function QuotationPreview() {
         <Button variant="whatsapp" className="flex-1" onClick={sendWhatsApp}>
           <MessageCircle /> Send
         </Button>
-        <Button variant="outline" size="icon" onClick={() => navigate(`/quotations/${qt.id}/edit`)}>
+        <Button variant="outline" size="icon" title="Edit quotation" onClick={() => navigate(`/quotations/${qt.id}/edit`)}>
           <Pencil />
         </Button>
       </div>

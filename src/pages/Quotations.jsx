@@ -95,11 +95,11 @@ export default function Quotations() {
       </div>
 
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        <div className="relative min-w-[200px] flex-1">
+        <div className="relative w-full flex-1 basis-full sm:min-w-[200px] sm:basis-0">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by number, title or client…" className="pl-9" />
         </div>
-        <SimpleSelect value={status} onValueChange={setStatus} options={['All', ...QUOTATION_STATUSES]} className="w-[140px]" />
+        <SimpleSelect value={status} onValueChange={setStatus} options={['All', ...QUOTATION_STATUSES]} className="min-w-0 flex-1 sm:w-[140px] sm:flex-none" />
       </div>
 
       {rows.length === 0 ? (

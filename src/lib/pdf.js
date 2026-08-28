@@ -8,6 +8,7 @@
  */
 
 import { formatINR, formatDate, formatDateLong, formatNum, amountInWords } from './format'
+import logoMark from '../../image/logo-mark.png'
 
 const esc = (s) =>
   String(s ?? '')
@@ -58,8 +59,30 @@ export function generateDocumentPDF(htmlContent, filename = 'document') {
       }, 1500)
     }
 
-    if (doc.readyState === 'complete') setTimeout(fire, 250)
-    else iframe.onload = () => setTimeout(fire, 250)
+    /**
+     * Wait for the letterhead artwork before printing.
+     *
+     * A fixed delay was a race: an image that had not decoded yet printed as a
+     * blank box on the client's copy. Capped so a missing file cannot leave the
+     * user with a button that never responds.
+     */
+    const whenImagesReady = () => {
+      const win = iframe.contentWindow
+      const images = Array.from(win.document.images || [])
+      const pending = images.filter((img) => !img.complete)
+      if (!pending.length) return Promise.resolve()
+      return Promise.race([
+        Promise.all(
+          pending.map((img) => new Promise((done) => { img.onload = done; img.onerror = done })),
+        ),
+        new Promise((done) => setTimeout(done, 3000)),
+      ])
+    }
+
+    const start = () => whenImagesReady().then(() => setTimeout(fire, 60))
+
+    if (doc.readyState === 'complete') start()
+    else iframe.onload = start
   })
 }
 
@@ -153,9 +176,9 @@ function swooshSVG() {
 
 function letterhead(settings, rightRows = []) {
   const c = settings.company || {}
-  const logo = c.logo
-    ? `<div class="logo"><img src="${esc(c.logo)}" alt="logo"/></div>`
-    : `<div class="logo">SZ</div>`
+  // A company logo uploaded in Settings wins; otherwise the Stonezen mark.
+  const logoSrc = c.logo || new URL(logoMark, window.location.origin).href
+  const logo = `<div class="logo"><img src="${esc(logoSrc)}" alt="logo"/></div>`
   return `
   ${swooshSVG()}
   <div class="brandbar">
@@ -299,7 +322,6 @@ export function buildQuotationHTML(qt, client, project, settings, totals) {
   ${sched}
   ${qt.terms ? `<div class="section"><h3>Terms &amp; Conditions</h3><div class="note">${nl2br(qt.terms)}</div></div>` : ''}
 
-  <div class="sign"><div class="line">For ${esc(settings.company?.name || '')}<br/>Authorised Signatory</div></div>
   <div class="thanks">Thank you for the opportunity — we look forward to working with you.</div>
   ${footerBlock(settings)}`
 

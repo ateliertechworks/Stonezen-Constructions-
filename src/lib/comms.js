@@ -130,7 +130,8 @@ export function shareDocWhatsApp(client, doc, total, kind = 'Quotation', company
     `Please find our ${kind.toLowerCase()} *${doc.id}* for ${doc.title || doc.notes || 'the discussed work'}.`,
     `Total: *${formatINR(total)}*`,
     '',
-    'The PDF is attached. Do reach out for any clarification.',
+    // WhatsApp click-to-chat carries text only — never claim an attachment here.
+    'I am sending the PDF across in the next message. Do reach out for any clarification.',
     '',
     `${company.ceo || 'B. Dhanasundaran'}`,
     `${company.name || 'Stonezen Constructions'}`,

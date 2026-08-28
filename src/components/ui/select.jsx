@@ -72,11 +72,18 @@ const SelectLabel = ({ className, ...props }) => (
   <SelectPrimitive.Label className={cn('px-2 py-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-400', className)} {...props} />
 )
 
-/** Convenience wrapper: options can be strings or {value,label} objects. */
-export function SimpleSelect({ value, onValueChange, options = [], placeholder = 'Select…', className, disabled }) {
+/**
+ * Convenience wrapper: options can be strings or {value,label} objects.
+ *
+ * `id` and the aria props are forwarded to the trigger so a surrounding Field
+ * label actually points at something focusable.
+ */
+export function SimpleSelect({
+  value, onValueChange, options = [], placeholder = 'Select…', className, disabled, id, ...aria
+}) {
   return (
     <Select value={value ?? undefined} onValueChange={onValueChange} disabled={disabled}>
-      <SelectTrigger className={className}>
+      <SelectTrigger id={id} className={className} {...aria}>
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
       <SelectContent>

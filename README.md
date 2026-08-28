@@ -12,24 +12,76 @@ print-quality PDFs and WhatsApp/email follow-up tools.
 ```bash
 npm install
 npm run dev      # http://localhost:5173
+npm test         # vitest — money math, store, auth, app boot
+npm run lint
 npm run build    # production bundle in dist/
 npm run preview  # serve the built bundle
 ```
 
-Demo login (pre-filled on the sign-in screen):
+Demo login (pre-filled on the sign-in screen **in dev only** — a production
+build ships an empty form):
 
 ```
 stonezenconstructions@gmail.com / stonezen
 ```
 
+If your browser cannot reach `localhost:5173`, Vite bound to IPv6 only; use
+`npm run dev -- --host` to listen on IPv4 as well.
+
+## Deploying
+
+`Dockerfile` builds the static bundle and serves it through nginx with an SPA
+fallback, long-lived caching for fingerprinted assets, and a `/healthz`
+endpoint. On **Coolify**, add the repository as an *application*, choose the
+Dockerfile build pack, expose port 80, and point the health check at
+`/healthz`. Attaching a sub-domain later needs no code change — the app is
+served entirely from the origin root and holds no absolute URLs.
+
+`.github/workflows/ci.yml` runs lint, tests and the build on every push.
+
+## Checking responsiveness
+
+jsdom does no layout, so unit tests cannot see a page overflowing sideways.
+`npm run audit:responsive` drives a locally installed Chrome over every route at
+320 / 375 / 768 / 1024 / 1280 px and reports any horizontal overflow along with
+the element that caused it:
+
+```bash
+npm run dev                 # in one terminal
+npm run audit:responsive    # in another
+SHOTS=1 OUT_DIR=/tmp/shots npm run audit:responsive   # also write screenshots
+```
+
+It exits quietly if no Chrome is installed, so it is safe to run anywhere. The
+usual culprit it finds is a grid or flex child without `min-w-0` — see the note
+at the top of `src/index.css`.
+
 ## How it stores data
 
 Everything lives in `localStorage` under `stonezen_crm_v1` — no server, no network.
+A `storage` listener keeps two open tabs in sync instead of letting the last
+write silently win, and a failed write (quota exhausted, storage blocked) raises
+a banner rather than pretending the change was saved.
 The store (`src/lib/store.js`) exposes `getState`/`subscribe`/`setState` and is read
 through `useSyncExternalStore`, so every screen updates the moment a record changes.
 
 **Settings → Data** exports a JSON backup, imports one back, restores the sample
 dataset, or clears everything. Export regularly: clearing browser site data wipes it.
+
+Deleting a client who has payments or issued invoices **archives** them instead —
+a received payment is a financial record and is never removed by a cascade.
+
+## Accounts and security
+
+Passwords are hashed with PBKDF2-SHA256 (210k iterations, per-user salt); an
+account stored in plain text by an earlier build is upgraded on its next
+successful sign-in. Sign-up is **closed by default** — the owner opens it from
+**Settings → Security**, which is also where a recovery code is issued. Only a
+hash of that code is kept, so a forgotten password is reset by presenting the
+code rather than by the app printing one on screen.
+
+Because each install keeps its own data in its own browser, this gate protects
+*this device*, not a shared server.
 
 ## What's in it
 
@@ -44,7 +96,7 @@ dataset, or clears everything. Export regularly: clearing browser site data wipe
 | **Accounts** | Monthly trend, expense breakdown, GST summary (CGST/SGST/IGST), outstanding receivables, CSV export |
 | **Follow-ups** | Sent quotations ranked by how long they've been quiet, with ready-written WhatsApp and email messages |
 | **Documents** | Every quotation and invoice in one list, each downloadable as PDF |
-| **Settings** | Company profile and logo, banking details, numbering prefixes, document defaults, data tools |
+| **Settings** | Company profile and logo, banking details, numbering prefixes, document defaults, security (password, recovery code, sign-up), data tools |
 
 ## Documents and PDFs
 
@@ -70,6 +122,25 @@ white page.
   a draft with money against it stops reading as a draft
 - All amounts render in Indian grouping (`₹1,23,456`), with lakh/crore short forms on
   dense cards and an amount-in-words line on every document
+
+Document numbers follow the Indian financial year (April–March), so the series
+restarts each April: `INV-2026-27-001`. The number is allocated when a document
+is saved, never when a builder opens, so two drafts cannot claim the same one.
+
+## Not yet built
+
+Three things from the readiness review are deliberately still open, because each
+is a feature build rather than a fix:
+
+- **Per-line HSN/SAC codes and per-line GST rates.** GST is still a single
+  document-level rate, and intra/inter state is a manual toggle.
+- **Retention, TDS §194C and mobilisation advance.** Project profit therefore
+  counts the full invoiced value as collectable.
+- **Milestone billing.** A quotation's payment schedule prints, but does not
+  generate the invoices that claim it.
+
+Durable multi-device storage, site photo capture and push follow-ups all need a
+backend and are out of scope for the localStorage build.
 
 ## Layout of the source
 

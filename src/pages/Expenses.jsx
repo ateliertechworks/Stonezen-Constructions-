@@ -95,16 +95,16 @@ export default function Expenses({ embedded = false }) {
       <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_260px]">
         <div>
           <div className="mb-3 flex flex-wrap items-center gap-2">
-            <div className="relative min-w-[180px] flex-1">
+            <div className="relative w-full flex-1 basis-full sm:min-w-[180px] sm:basis-0">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search description or vendor…" className="pl-9" />
             </div>
-            <SimpleSelect value={category} onValueChange={setCategory} options={['All', ...EXPENSE_CATEGORIES]} className="w-[170px]" />
+            <SimpleSelect value={category} onValueChange={setCategory} options={['All', ...EXPENSE_CATEGORIES]} className="min-w-0 flex-1 sm:w-[170px] sm:flex-none" />
             <SimpleSelect
               value={project}
               onValueChange={setProject}
               options={[{ value: 'All', label: 'All projects' }, ...db.projects.map((p) => ({ value: p.id, label: p.name }))]}
-              className="w-[190px]"
+              className="min-w-0 flex-1 sm:w-[190px] sm:flex-none"
             />
           </div>
 

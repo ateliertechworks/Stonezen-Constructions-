@@ -1,70 +1,82 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { AlertCircle, KeyRound, CheckCircle2 } from 'lucide-react'
+import { AlertCircle, ShieldCheck } from 'lucide-react'
 import AuthShell from './AuthShell'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Field } from '../../components/ui/label'
-import { requestReset } from '../../lib/auth'
+import { resetPasswordWithCode } from '../../lib/auth'
 
+/**
+ * Reset is a single step against the recovery code issued in Settings.
+ *
+ * The earlier build issued a code and printed it on this screen, which meant
+ * the page handed out the very secret it was checking. The code now has to
+ * come from outside the app.
+ */
 export default function ForgotPassword() {
   const navigate = useNavigate()
-  const [email, setEmail] = useState('')
+  const [form, setForm] = useState({ email: '', code: '', password: '', confirm: '' })
   const [error, setError] = useState('')
-  const [issued, setIssued] = useState(null)
+  const [busy, setBusy] = useState(false)
+  const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
 
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault()
-    const res = requestReset(email)
-    if (!res.ok) return setError(res.error)
+    if (form.password.length < 8) return setError('Password must be at least 8 characters.')
+    if (form.password !== form.confirm) return setError('The two passwords do not match.')
+    setBusy(true)
     setError('')
-    setIssued(res)
+    const res = await resetPasswordWithCode(form.email, form.code, form.password)
+    setBusy(false)
+    if (!res.ok) return setError(res.error)
+    navigate('/login', { replace: true })
   }
 
   return (
     <AuthShell
       title="Reset your password"
-      subtitle="We'll issue a reset code for this account."
+      subtitle="Enter the recovery code for this account."
+      aside={
+        <p className="glass-note rounded-xl border border-white/25 bg-white/[0.12] px-3 py-2 text-center text-[11.5px] text-slate-500 backdrop-blur-[10px] lg:rounded-lg lg:border-0 lg:bg-slate-50 lg:backdrop-blur-none">
+          Recovery codes are issued from Settings → Security while signed in.
+        </p>
+      }
       footer={
         <Link to="/login" className="font-semibold text-brand hover:underline">
           Back to sign in
         </Link>
       }
     >
-      {issued ? (
-        <div className="space-y-4">
-          <div className="flex items-start gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-[13px] text-emerald-800">
-            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
-            <div>
-              Reset code issued for <strong>{issued.email}</strong>.
-              <div className="mt-2 rounded-md border border-emerald-300 bg-white px-3 py-2 text-center text-lg font-bold tracking-[0.25em] text-emerald-700">
-                {issued.token}
-              </div>
-              <p className="mt-2 text-[11.5px] text-emerald-700">
-                This build has no mail server, so the code is shown here directly.
-              </p>
-            </div>
+      <form onSubmit={submit} className="space-y-4">
+        {error && (
+          <div role="alert" className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-700">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+            {error}
           </div>
-          <Button size="lg" className="w-full" onClick={() => navigate('/reset-password', { state: { token: issued.token } })}>
-            Continue to reset
-          </Button>
-        </div>
-      ) : (
-        <form onSubmit={submit} className="space-y-4">
-          {error && (
-            <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-700">
-              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-              {error}
-            </div>
-          )}
-          <Field label="Email address">
-            <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-          </Field>
-          <Button type="submit" size="lg" className="w-full">
-            <KeyRound /> Send reset code
-          </Button>
-        </form>
-      )}
+        )}
+        <Field label="Email address">
+          <Input type="email" value={form.email} onChange={set('email')} required autoComplete="username" />
+        </Field>
+        <Field label="Recovery code">
+          <Input
+            value={form.code}
+            onChange={set('code')}
+            required
+            placeholder="XXXXX-XXXXX-XXXXX-XXXXX"
+            className="uppercase tracking-[0.12em]"
+          />
+        </Field>
+        <Field label="New password">
+          <Input type="password" value={form.password} onChange={set('password')} required autoComplete="new-password" />
+        </Field>
+        <Field label="Confirm new password">
+          <Input type="password" value={form.confirm} onChange={set('confirm')} required autoComplete="new-password" />
+        </Field>
+        <Button type="submit" size="lg" className="w-full" disabled={busy}>
+          <ShieldCheck aria-hidden="true" /> {busy ? 'Updating…' : 'Update password'}
+        </Button>
+      </form>
     </AuthShell>
   )
 }

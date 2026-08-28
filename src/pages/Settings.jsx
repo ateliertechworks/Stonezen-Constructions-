@@ -2,13 +2,17 @@ import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Settings as SettingsIcon, Building2, Landmark, FileText, Database,
-  Upload, Trash2, Save, RotateCcw, Download, LogOut, User,
+  Upload, Trash2, Save, RotateCcw, Download, LogOut, User, ShieldCheck,
+  KeyRound, Copy, AlertTriangle,
 } from 'lucide-react'
 
 import { useStore } from '../lib/useStore'
 import { updateSettings, resetData, clearData, exportData, importData } from '../lib/store'
-import { getSession, logout, updateProfile } from '../lib/auth'
-import { download } from '../lib/utils'
+import {
+  getSession, logout, updateProfile, changePassword, generateRecoveryCode,
+  hasRecoveryCode, isRegistrationOpen, setRegistrationOpen,
+} from '../lib/auth'
+import { download, cn } from '../lib/utils'
 
 import PageHeader from '../components/ui/PageHeader'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
@@ -33,6 +37,35 @@ export default function Settings() {
   const [savedFlag, setSavedFlag] = useState('')
   const [confirmReset, setConfirmReset] = useState(false)
   const [confirmClear, setConfirmClear] = useState(false)
+
+  // Security tab
+  const [pw, setPw] = useState({ current: '', next: '', confirm: '' })
+  const [pwMsg, setPwMsg] = useState(null)
+  const [recovery, setRecovery] = useState(null)
+  const [regOpen, setRegOpen] = useState(isRegistrationOpen())
+  const [hasCode, setHasCode] = useState(hasRecoveryCode())
+
+  const submitPassword = async (e) => {
+    e.preventDefault()
+    if (pw.next !== pw.confirm) return setPwMsg({ ok: false, text: 'The two passwords do not match.' })
+    const res = await changePassword(pw.current, pw.next)
+    if (!res.ok) return setPwMsg({ ok: false, text: res.error })
+    setPw({ current: '', next: '', confirm: '' })
+    setPwMsg({ ok: true, text: 'Password updated.' })
+  }
+
+  const issueRecoveryCode = async () => {
+    const res = await generateRecoveryCode()
+    if (res.ok) {
+      setRecovery(res.code)
+      setHasCode(true)
+    }
+  }
+
+  const toggleRegistration = (next) => {
+    setRegistrationOpen(next)
+    setRegOpen(next)
+  }
 
   const flash = (msg) => {
     setSavedFlag(msg)
@@ -109,6 +142,7 @@ export default function Settings() {
           <TabsTrigger value="banking"><Landmark className="h-3.5 w-3.5" /> Banking</TabsTrigger>
           <TabsTrigger value="documents"><FileText className="h-3.5 w-3.5" /> Documents</TabsTrigger>
           <TabsTrigger value="account"><User className="h-3.5 w-3.5" /> Account</TabsTrigger>
+          <TabsTrigger value="security"><ShieldCheck className="h-3.5 w-3.5" /> Security</TabsTrigger>
           <TabsTrigger value="data"><Database className="h-3.5 w-3.5" /> Data</TabsTrigger>
         </TabsList>
 
@@ -302,6 +336,118 @@ export default function Settings() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+
+        {/* ------------------------------------------------------ security */}
+        <TabsContent value="security">
+          <div className="space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Change password</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={submitPassword} className="space-y-3">
+                  {pwMsg && (
+                    <div
+                      role="status"
+                      className={cn(
+                        'rounded-lg border px-3 py-2 text-[13px]',
+                        pwMsg.ok
+                          ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                          : 'border-red-200 bg-red-50 text-red-700',
+                      )}
+                    >
+                      {pwMsg.text}
+                    </div>
+                  )}
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <Field label="Current password">
+                      <Input
+                        type="password" autoComplete="current-password" required
+                        value={pw.current} onChange={(e) => setPw((v) => ({ ...v, current: e.target.value }))}
+                      />
+                    </Field>
+                    <Field label="New password" hint="At least 8 characters">
+                      <Input
+                        type="password" autoComplete="new-password" required
+                        value={pw.next} onChange={(e) => setPw((v) => ({ ...v, next: e.target.value }))}
+                      />
+                    </Field>
+                    <Field label="Confirm new password">
+                      <Input
+                        type="password" autoComplete="new-password" required
+                        value={pw.confirm} onChange={(e) => setPw((v) => ({ ...v, confirm: e.target.value }))}
+                      />
+                    </Field>
+                  </div>
+                  <Button type="submit" size="sm"><KeyRound /> Update password</Button>
+                </form>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Recovery code</CardTitle>
+                <Button size="sm" variant="outline" onClick={issueRecoveryCode}>
+                  <RotateCcw /> {hasCode ? 'Generate new code' : 'Generate code'}
+                </Button>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <p className="text-[13px] text-slate-600">
+                  This is the only way to reset a forgotten password. Only a hash of the code
+                  is stored, so it cannot be read back later — write it down and keep it safe.
+                  Generating a new code replaces the old one.
+                </p>
+                {recovery ? (
+                  <div className="space-y-2">
+                    <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[13px] text-amber-800">
+                      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                      Copy this now. It will not be shown again.
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <code className="flex-1 rounded-lg border border-slate-300 bg-slate-50 px-3 py-2.5 text-center text-[15px] font-bold tracking-[0.16em] text-slate-800">
+                        {recovery}
+                      </code>
+                      <Button
+                        size="sm" variant="outline"
+                        onClick={() => navigator.clipboard?.writeText(recovery)}
+                      >
+                        <Copy /> Copy
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-[13px] font-semibold text-slate-500">
+                    {hasCode
+                      ? 'A recovery code is set for this account.'
+                      : 'No recovery code set — you will not be able to reset a forgotten password.'}
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>New accounts</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <p className="text-[13px] text-slate-600">
+                  When this is off, the sign-up page is closed and only you can add people.
+                  Leave it off unless you are actively inviting a colleague.
+                </p>
+                <label className="flex items-center gap-2.5 text-[13.5px] font-semibold text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={regOpen}
+                    onChange={(e) => toggleRegistration(e.target.checked)}
+                    className="h-4 w-4 rounded border-slate-300 text-brand focus-visible:ring-2 focus-visible:ring-brand/40"
+                  />
+                  Allow anyone to create an account
+                </label>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
 
         {/* ---------------------------------------------------------- data */}

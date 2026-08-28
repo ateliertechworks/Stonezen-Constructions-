@@ -1,6 +1,7 @@
 import { formatINR, formatDate, formatDateLong, formatNum, amountInWords } from '../../lib/format'
 import { cn } from '../../lib/utils'
 import { BLOCK_TYPES } from './blocks'
+import logoMark from '../../../image/logo-mark.png'
 
 /**
  * On-screen mirror of the printed document. Keeps the same block order and
@@ -27,36 +28,35 @@ function Branding({ p, settings }) {
   const c = settings.company || {}
   return (
     <header>
-      <div className="relative -mx-1 h-12 overflow-hidden">
+      <div className="doc-swoosh relative -mx-1 h-12 overflow-hidden">
         <svg viewBox="0 0 800 74" preserveAspectRatio="none" className="absolute inset-0 h-full w-full">
           <path d="M0,0 L250,0 C190,26 120,46 0,58 Z" fill="#1e3a8a" />
           <path d="M0,0 L200,0 C150,34 90,56 0,72 Z" fill="#3b56c4" opacity="0.75" />
           <path d="M0,0 L140,0 C110,40 62,60 0,74 Z" fill="#152a63" opacity="0.9" />
         </svg>
       </div>
-      <div className="flex items-start justify-between gap-4 px-1 pb-2 pt-1">
+      <div className="doc-brandrow flex items-start justify-between gap-4 px-1 pb-2 pt-1">
         <div className="min-w-0">
           <div className="text-[15px] font-extrabold uppercase leading-tight tracking-tight text-slate-900">
             {c.ceo || c.name}
           </div>
           {p.showTagline && <div className="text-[11px] italic text-brand-light">{c.tagline}</div>}
           <div className="text-[11px] font-bold text-slate-900">{c.designation || c.name}</div>
-          {p.showAddress && <div className="mt-0.5 max-w-[280px] text-[9px] text-slate-500">{c.address}</div>}
+          {p.showAddress && <div className="mt-0.5 text-[9px] leading-relaxed text-slate-500">{c.address}</div>}
         </div>
-        <div className="flex shrink-0 items-start gap-2.5">
-          <div className="text-right text-[10px] text-slate-600">
+        <div className="doc-brandmeta flex shrink-0 items-start gap-2.5">
+          <div className="doc-brandcontact text-right text-[10px] leading-snug text-slate-600">
             {p.showGstin && c.gstin && <div className="font-bold text-slate-800">GSTIN: {c.gstin}</div>}
             <div>{c.phone}</div>
             <div className="break-all">{c.email}</div>
           </div>
-          {p.showLogo &&
-            (c.logo ? (
-              <img src={c.logo} alt="" className="h-14 w-14 rounded-xl object-contain" />
-            ) : (
-              <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-brand text-[22px] font-extrabold tracking-tighter text-white">
-                SZ
-              </div>
-            ))}
+          {p.showLogo && (
+            <img
+              src={c.logo || logoMark}
+              alt=""
+              className="h-14 w-14 shrink-0 rounded-xl bg-white object-contain p-1 ring-1 ring-slate-200"
+            />
+          )}
         </div>
       </div>
     </header>
@@ -89,7 +89,7 @@ function Metadata({ p, doc, kind, project, status }) {
 function ClientDetails({ p, doc, kind, client, project }) {
   const isInv = kind === 'invoice'
   return (
-    <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+    <div className="doc-partyrow mt-2 flex gap-2">
       <Box title={p.heading || (isInv ? 'Bill To' : 'Quotation To')}>
         <div className="text-[11px] font-bold text-slate-900">{client?.company || client?.name || '—'}</div>
         {client?.contactPerson && <div>Attn: {client.contactPerson}</div>}
@@ -143,7 +143,7 @@ function Items({ p, doc, kind }) {
         {p.title || doc.title || (kind === 'invoice' ? 'TAX INVOICE' : 'Quotation')}
       </h2>
       <div className="overflow-x-auto">
-        <table className="w-full border-collapse border border-slate-400 text-[10px]">
+        <table className="w-full min-w-[430px] border-collapse border border-slate-400 text-[10px]">
           <thead>
             <tr className="bg-navy-50 text-left">
               {p.showSno && <th className="w-[6%] border border-slate-400 px-1.5 py-1 text-center font-bold">SNo</th>}
@@ -179,32 +179,40 @@ function Items({ p, doc, kind }) {
   )
 }
 
-function Totals({ p, t, paid, balance, kind }) {
-  const Row = ({ label, value, strong }) => (
+/**
+ * Declared at module scope, not inside Totals: a component created during
+ * render is a new type on every pass, so React unmounts and remounts the whole
+ * subtree instead of updating it.
+ */
+function TotalRow({ label, value, strong }) {
+  return (
     <div className={cn('flex justify-between gap-4 px-2 py-[3px] text-[10px]', strong && 'font-bold text-slate-900')}>
       <span className="text-slate-600">{label}</span>
       <span className="tabular-nums">{value}</span>
     </div>
   )
+}
+
+function Totals({ t, paid, balance, kind }) {
   return (
     <div className="mt-1 flex justify-end">
       <div className="w-full max-w-[300px] overflow-hidden rounded-b-md border border-t-0 border-slate-400">
-        <Row label="Subtotal" value={formatINR(t.subtotal, true)} />
-        {t.discountAmount > 0 && <Row label={`Discount (${formatNum(t.discountPct)}%)`} value={`− ${formatINR(t.discountAmount, true)}`} />}
-        {t.discountAmount > 0 && <Row label="Taxable Amount" value={formatINR(t.taxableAmount, true)} />}
-        {t.gstEnabled && t.inter && <Row label={`IGST @ ${formatNum(t.gstRate)}%`} value={formatINR(t.igst, true)} />}
-        {t.gstEnabled && !t.inter && <Row label={`CGST @ ${formatNum(t.gstRate / 2)}%`} value={formatINR(t.cgst, true)} />}
-        {t.gstEnabled && !t.inter && <Row label={`SGST @ ${formatNum(t.gstRate / 2)}%`} value={formatINR(t.sgst, true)} />}
-        {!!t.additional && <Row label="Additional Charges" value={formatINR(t.additional, true)} />}
-        {Math.abs(t.roundOff) >= 0.01 && <Row label="Round Off" value={`${t.roundOff < 0 ? '− ' : '+ '}${formatINR(Math.abs(t.roundOff), true)}`} />}
+        <TotalRow label="Subtotal" value={formatINR(t.subtotal, true)} />
+        {t.discountAmount > 0 && <TotalRow label={`Discount (${formatNum(t.discountPct)}%)`} value={`− ${formatINR(t.discountAmount, true)}`} />}
+        {t.discountAmount > 0 && <TotalRow label="Taxable Amount" value={formatINR(t.taxableAmount, true)} />}
+        {t.gstEnabled && t.inter && <TotalRow label={`IGST @ ${formatNum(t.gstRate)}%`} value={formatINR(t.igst, true)} />}
+        {t.gstEnabled && !t.inter && <TotalRow label={`CGST @ ${formatNum(t.gstRate / 2)}%`} value={formatINR(t.cgst, true)} />}
+        {t.gstEnabled && !t.inter && <TotalRow label={`SGST @ ${formatNum(t.gstRate / 2)}%`} value={formatINR(t.sgst, true)} />}
+        {!!t.additional && <TotalRow label="Additional Charges" value={formatINR(t.additional, true)} />}
+        {Math.abs(t.roundOff) >= 0.01 && <TotalRow label="Round Off" value={`${t.roundOff < 0 ? '− ' : '+ '}${formatINR(Math.abs(t.roundOff), true)}`} />}
         <div className="flex justify-between gap-4 bg-brand px-2 py-1.5 text-[11px] font-extrabold text-white">
           <span>TOTAL</span>
           <span className="tabular-nums">{formatINR(t.grandTotal)}</span>
         </div>
         {kind === 'invoice' && paid > 0 && (
           <>
-            <Row label="Amount Paid" value={`− ${formatINR(paid, true)}`} />
-            <Row label="Balance Due" value={formatINR(balance, true)} strong />
+            <TotalRow label="Amount Paid" value={`− ${formatINR(paid, true)}`} />
+            <TotalRow label="Balance Due" value={formatINR(balance, true)} strong />
           </>
         )}
       </div>
@@ -249,7 +257,7 @@ function BankInfo({ p, settings }) {
   const b = settings.banking || {}
   return (
     <Section heading={p.heading}>
-      <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-[10px] text-slate-600">
+      <div className="doc-bankgrid grid grid-cols-2 gap-x-4 gap-y-0.5 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-[10px] text-slate-600">
         <div><span className="font-semibold text-slate-800">Bank:</span> {b.bankName}</div>
         <div><span className="font-semibold text-slate-800">A/C No:</span> {b.accountNumber}</div>
         <div><span className="font-semibold text-slate-800">IFSC:</span> {b.ifsc}</div>
@@ -269,7 +277,7 @@ function renderBlock(block, ctx) {
     case 'items': return <Items p={p} doc={ctx.doc} kind={ctx.kind} />
     case 'totals': return (
       <>
-        <Totals p={p} t={ctx.totals} paid={ctx.paid} balance={ctx.balance} kind={ctx.kind} />
+        <Totals t={ctx.totals} paid={ctx.paid} balance={ctx.balance} kind={ctx.kind} />
         {p.showWords && (
           <p className="mt-1 text-right text-[9px] italic text-slate-500">
             Amount in words: {amountInWords(ctx.totals.grandTotal)}
@@ -286,6 +294,10 @@ function renderBlock(block, ctx) {
     }
     case 'bank_info': return <BankInfo p={p} settings={ctx.settings} />
     case 'signature':
+      // Quotations do not carry a signature line. Handled here rather than only
+      // in the default layout so quotations already saved with the block drop
+      // it as well.
+      if (ctx.kind !== 'invoice') return null
       return (
         <div className={cn('mt-6 text-[10px]', p.align === 'left' ? 'text-left' : p.align === 'center' ? 'text-center' : 'text-right')}>
           <span className="inline-block min-w-[170px] border-t border-slate-500 pt-1 text-center">

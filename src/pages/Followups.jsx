@@ -64,7 +64,7 @@ export default function Followups() {
               { value: 'Medium', label: 'Due a nudge' },
               { value: 'Low', label: 'Recently sent' },
             ]}
-            className="w-[170px]"
+            className="min-w-0 flex-1 sm:w-[170px] sm:flex-none"
           />
         }
       />

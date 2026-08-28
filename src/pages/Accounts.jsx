@@ -151,7 +151,7 @@ export default function Accounts() {
                   { value: '6', label: 'Last 6 months' },
                   { value: '12', label: 'Last 12 months' },
                 ]}
-                className="w-[160px]"
+                className="min-w-0 flex-1 sm:w-[160px] sm:flex-none"
               />
               <Button size="sm" variant="outline" onClick={exportCsv}>
                 <Download /> Export CSV
@@ -324,7 +324,7 @@ export default function Accounts() {
                 { value: 'Payment', label: 'Payments only' },
                 { value: 'Expense', label: 'Expenses only' },
               ]}
-              className="ml-auto w-[180px]"
+              className="min-w-0 flex-1 sm:ml-auto sm:w-[180px] sm:flex-none"
             />
           </div>
 

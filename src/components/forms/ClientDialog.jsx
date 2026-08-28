@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../ui/dialog'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
@@ -18,9 +18,15 @@ export default function ClientDialog({ open, onOpenChange, client, onSaved }) {
   const [form, setForm] = useState(EMPTY)
   const editing = !!client
 
-  useEffect(() => {
+  // Reload the form whenever the dialog opens, or swaps to a different client.
+  // Done during render rather than in an effect so the dialog never shows the
+  // previous client's details for a frame.
+  const formKey = open ? client?.id || 'new' : null
+  const [loadedKey, setLoadedKey] = useState(formKey)
+  if (formKey !== loadedKey) {
+    setLoadedKey(formKey)
     if (open) setForm(client ? { ...EMPTY, ...client } : EMPTY)
-  }, [open, client])
+  }
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../ui/dialog'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
@@ -21,9 +21,15 @@ export default function ProjectDialog({ open, onOpenChange, project, defaultClie
   const [form, setForm] = useState(EMPTY)
   const editing = !!project
 
-  useEffect(() => {
+  // Reload the form whenever the dialog opens, or swaps to a different project.
+  // Done during render rather than in an effect so the dialog never shows the
+  // previous project's details for a frame.
+  const formKey = open ? `${project?.id || 'new'}:${defaultClientId || ''}` : null
+  const [loadedKey, setLoadedKey] = useState(formKey)
+  if (formKey !== loadedKey) {
+    setLoadedKey(formKey)
     if (open) setForm(project ? { ...EMPTY, ...project } : { ...EMPTY, clientId: defaultClientId || '' })
-  }, [open, project, defaultClientId])
+  }
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
   const pick = (k) => (v) => setForm((f) => ({ ...f, [k]: fromSel(v) }))

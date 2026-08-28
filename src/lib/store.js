@@ -20,7 +20,9 @@ function hydrate(raw) {
         banking: { ...base.settings.banking, ...(parsed.settings?.banking || {}) },
         docs: { ...base.settings.docs, ...(parsed.settings?.docs || {}) },
       },
-      counters: { ...base.counters, ...(parsed.counters || {}) },
+      // A restored backup carries its own counters authoritatively — merging the
+      // sample data's counters underneath would start a new company at 006.
+      counters: parsed.counters ? { ...parsed.counters } : { ...base.counters },
       ...COLLECTIONS.reduce((acc, c) => {
         acc[c] = Array.isArray(parsed[c]) ? parsed[c] : base[c]
         return acc
@@ -34,12 +36,32 @@ function hydrate(raw) {
 let state = hydrate(typeof localStorage !== 'undefined' ? localStorage.getItem(KEY) : null)
 const listeners = new Set()
 
+/** Set while applying a change that arrived from another tab, so we don't echo it back. */
+let applyingRemote = false
+
+/** Raised when the browser refuses to store any more (quota exhausted). */
+let lastPersistError = null
+
+function notify() {
+  listeners.forEach((l) => l())
+}
+
 function persist() {
+  if (applyingRemote) return
   try {
     localStorage.setItem(KEY, JSON.stringify(state))
+    lastPersistError = null
   } catch (e) {
-    console.warn('Stonezen: could not persist to localStorage', e)
+    // Out of quota, or storage blocked entirely (private mode, blocked cookies).
+    // The in-memory state is still correct; the user needs to know it isn't saved.
+    lastPersistError = e
+    console.error('Stonezen: could not persist to localStorage', e)
+    window.dispatchEvent(new CustomEvent('stonezen:persist-failed', { detail: e }))
   }
+}
+
+export function getPersistError() {
+  return lastPersistError
 }
 
 export function getState() {
@@ -51,12 +73,61 @@ export function subscribe(listener) {
   return () => listeners.delete(listener)
 }
 
+/**
+ * Batches every write inside `fn` into a single persist + notify.
+ *
+ * Creating a record used to write three separate times (number, record,
+ * activity), each serialising the whole database. Nested calls collapse into
+ * the outermost one.
+ */
+let batchDepth = 0
+let batchDirty = false
+
+export function batch(fn) {
+  batchDepth += 1
+  try {
+    return fn()
+  } finally {
+    batchDepth -= 1
+    if (batchDepth === 0 && batchDirty) {
+      batchDirty = false
+      persist()
+      notify()
+    }
+  }
+}
+
 export function setState(updater) {
   const next = typeof updater === 'function' ? updater(state) : updater
   state = { ...state, ...next }
+  if (batchDepth > 0) {
+    batchDirty = true
+    return state
+  }
   persist()
-  listeners.forEach((l) => l())
+  notify()
   return state
+}
+
+/**
+ * Adopts a change written by another tab.
+ *
+ * Every write serialises the whole database, so without this the last tab to
+ * save would silently overwrite the other's work. Re-hydrating and notifying
+ * *without* persisting is what stops the two tabs writing back and forth
+ * forever.
+ */
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (e) => {
+    if (e.key !== KEY || e.newValue === null) return
+    applyingRemote = true
+    try {
+      state = hydrate(e.newValue)
+      notify()
+    } finally {
+      applyingRemote = false
+    }
+  })
 }
 
 export function resetData() {
@@ -91,19 +162,68 @@ const PREFIX_KEY = {
   invoice: 'invoicePrefix', payment: 'paymentPrefix', expense: 'expensePrefix',
 }
 
-/** Generates the next document number, e.g. QT-2026-009, and bumps the counter. */
-export function nextNumber(type) {
-  const prefix = state.settings.docs[PREFIX_KEY[type]] || type.slice(0, 2).toUpperCase()
-  const n = (state.counters[type] || 0) + 1
-  setState((s) => ({ counters: { ...s.counters, [type]: n } }))
-  return `${prefix}-${new Date().getFullYear()}-${String(n).padStart(3, '0')}`
+/**
+ * The Indian financial year label for a date, e.g. "2026-27" for 12 Aug 2026.
+ *
+ * GST rule 46(b) requires a consecutive series unique to a financial year, and
+ * the Indian FY runs April to March — a calendar year is the wrong boundary.
+ */
+export function financialYear(date = new Date()) {
+  const d = date instanceof Date ? date : new Date(date)
+  const y = d.getFullYear()
+  const startYear = d.getMonth() >= 3 ? y : y - 1
+  return `${startYear}-${String((startYear + 1) % 100).padStart(2, '0')}`
 }
 
-/** Peek at the next number without consuming it (for builder previews). */
-export function peekNumber(type) {
+function counterKey(type, fy) {
+  return `${type}:${fy}`
+}
+
+/**
+ * The next sequence number for a type within the current financial year.
+ *
+ * Counters are keyed per FY so the series restarts at 001 each April. Legacy
+ * un-keyed counters written by an earlier build seed the first FY they are
+ * seen in, so an existing install never reuses a number it has already issued.
+ */
+function nextSeq(type, fy) {
+  const keyed = state.counters[counterKey(type, fy)]
+  if (keyed !== undefined) return keyed + 1
+  const legacy = state.counters[type]
+  return (legacy || 0) + 1
+}
+
+/**
+ * Hyphens, not the conventional slashes: this string doubles as the record id
+ * and therefore as a React Router path param, and a slash would split the route.
+ */
+function formatNumber(type, fy, n) {
   const prefix = state.settings.docs[PREFIX_KEY[type]] || type.slice(0, 2).toUpperCase()
-  const n = (state.counters[type] || 0) + 1
-  return `${prefix}-${new Date().getFullYear()}-${String(n).padStart(3, '0')}`
+  return `${prefix}-${fy}-${String(n).padStart(3, '0')}`
+}
+
+/**
+ * Generates the next document number and consumes it, e.g. QT/2026-27/009.
+ *
+ * The number is allocated at the moment of saving, never when a builder opens
+ * a draft — two drafts open at once must not preview the same number.
+ */
+export function nextNumber(type) {
+  const fy = financialYear()
+  const n = nextSeq(type, fy)
+  setState((s) => ({ counters: { ...s.counters, [counterKey(type, fy)]: n, [type]: n } }))
+  return formatNumber(type, fy, n)
+}
+
+/**
+ * The number a document *would* get, for display in a builder before saving.
+ *
+ * Deliberately does not consume the counter. Callers must treat this as
+ * provisional and let `nextNumber` allocate the real one on save.
+ */
+export function peekNumber(type) {
+  const fy = financialYear()
+  return formatNumber(type, fy, nextSeq(type, fy))
 }
 
 export function addActivity(text, type = 'general') {
@@ -115,23 +235,26 @@ export function addActivity(text, type = 'general') {
 /* ---------------------------------------------------------------- generic */
 
 function makeCrud(collection, { type, label, activityType }) {
-  const add = (payload) => {
-    const id = payload.id || nextNumber(type)
-    const record = { ...payload, id }
-    setState((s) => ({ [collection]: [record, ...s[collection]] }))
-    addActivity(`${label} ${id} created${payload.name ? ` — ${payload.name}` : ''}`, activityType)
-    return record
-  }
+  // Each of these used to persist the entire database once per inner write.
+  const add = (payload) =>
+    batch(() => {
+      const id = payload.id || nextNumber(type)
+      const record = { ...payload, id }
+      setState((s) => ({ [collection]: [record, ...s[collection]] }))
+      addActivity(`${label} ${id} created${payload.name ? ` — ${payload.name}` : ''}`, activityType)
+      return record
+    })
   const update = (id, patch) => {
     setState((s) => ({
       [collection]: s[collection].map((r) => (r.id === id ? { ...r, ...patch } : r)),
     }))
     return state[collection].find((r) => r.id === id)
   }
-  const remove = (id) => {
-    setState((s) => ({ [collection]: s[collection].filter((r) => r.id !== id) }))
-    addActivity(`${label} ${id} deleted`, activityType)
-  }
+  const remove = (id) =>
+    batch(() => {
+      setState((s) => ({ [collection]: s[collection].filter((r) => r.id !== id) }))
+      addActivity(`${label} ${id} deleted`, activityType)
+    })
   return { add, update, remove }
 }
 
@@ -153,15 +276,53 @@ export function addClient(data) {
   })
 }
 export const updateClient = clientCrud.update
+/**
+ * Whether a client can be deleted outright, and why not if they cannot.
+ *
+ * Money that has actually been received is a financial record: it must survive
+ * the client row that happens to point at it. A client with payments or issued
+ * invoices is archived instead, which keeps the books reconcilable.
+ */
+export function clientDeletionBlockers(id) {
+  const payments = state.payments.filter((p) => p.clientId === id).length
+  const invoices = state.invoices.filter((i) => i.clientId === id && i.status !== 'Draft').length
+  const reasons = []
+  if (payments) reasons.push(`${payments} recorded payment${payments > 1 ? 's' : ''}`)
+  if (invoices) reasons.push(`${invoices} issued invoice${invoices > 1 ? 's' : ''}`)
+  return reasons
+}
+
+export function archiveClient(id) {
+  clientCrud.update(id, { status: 'Archived', archivedAt: new Date().toISOString() })
+  addActivity(`Client ${id} archived — financial records kept`, 'client')
+}
+
+export function restoreClient(id) {
+  clientCrud.update(id, { status: 'Active', archivedAt: '' })
+  addActivity(`Client ${id} restored`, 'client')
+}
+
+/**
+ * Deletes a client that carries no financial history.
+ *
+ * Refuses when payments or issued invoices exist — callers should check
+ * `clientDeletionBlockers` first and offer archiving instead. Drafts and
+ * quotations, which represent no money, are detached rather than deleted so
+ * nothing is silently destroyed.
+ */
 export function deleteClient(id) {
-  // Detach dependent records rather than orphaning them silently.
+  const blockers = clientDeletionBlockers(id)
+  if (blockers.length) {
+    archiveClient(id)
+    return { ok: false, archived: true, reasons: blockers }
+  }
   setState((s) => ({
-    projects: s.projects.filter((p) => p.clientId !== id),
-    quotations: s.quotations.filter((q) => q.clientId !== id),
-    invoices: s.invoices.filter((i) => i.clientId !== id),
-    payments: s.payments.filter((p) => p.clientId !== id),
+    projects: s.projects.map((p) => (p.clientId === id ? { ...p, clientId: '' } : p)),
+    quotations: s.quotations.map((q) => (q.clientId === id ? { ...q, clientId: '' } : q)),
+    invoices: s.invoices.map((i) => (i.clientId === id ? { ...i, clientId: '' } : i)),
   }))
   clientCrud.remove(id)
+  return { ok: true }
 }
 
 /* --------------------------------------------------------------- projects */

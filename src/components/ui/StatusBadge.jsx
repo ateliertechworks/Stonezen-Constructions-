@@ -2,7 +2,7 @@ import { Badge } from './badge'
 
 const TONES = {
   // clients
-  Active: 'green', Prospect: 'blue', Inactive: 'slate',
+  Active: 'green', Prospect: 'blue', Inactive: 'slate', Archived: 'slate',
   // projects
   Planning: 'blue', 'In Progress': 'amber', 'On Hold': 'purple',
   Completed: 'green', Cancelled: 'red',

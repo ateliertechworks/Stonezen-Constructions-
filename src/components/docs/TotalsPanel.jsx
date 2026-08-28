@@ -7,15 +7,22 @@ import { cn } from '../../lib/utils'
 
 const GST_RATES = ['0', '5', '12', '18', '28']
 
-export default function TotalsPanel({ doc, onChange, totals: t, extraRows = [] }) {
-  const set = (patch) => onChange(patch)
-
-  const Row = ({ label, value, strong, tone }) => (
+/**
+ * Declared at module scope rather than inside TotalsPanel: a component created
+ * during render is a fresh type each pass, which remounts the subtree and drops
+ * focus while the user is typing into the totals fields.
+ */
+function Row({ label, value, strong, tone }) {
+  return (
     <div className={cn('flex items-center justify-between py-1 text-[13px]', strong && 'font-bold')}>
       <span className={cn('text-slate-500', strong && 'text-slate-800')}>{label}</span>
       <span className={cn('tabular-nums text-slate-800', tone)}>{value}</span>
     </div>
   )
+}
+
+export default function TotalsPanel({ doc, onChange, totals: t, extraRows = [] }) {
+  const set = (patch) => onChange(patch)
 
   return (
     <div className="space-y-3">

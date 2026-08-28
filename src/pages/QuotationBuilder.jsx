@@ -309,6 +309,7 @@ export default function QuotationBuilder() {
           <CardContent>
             <BlockPalette
               usedTypes={blocks.map((b) => b.type)}
+              exclude={['signature']}
               onAdd={(type) => {
                 const b = makeBlock(type)
                 setBlocksDirty([...blocks, b])

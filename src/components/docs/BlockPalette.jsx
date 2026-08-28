@@ -4,13 +4,15 @@ import { BLOCK_TYPES, BLOCK_GROUPS } from './blocks'
 import { Input } from '../ui/input'
 import { cn } from '../../lib/utils'
 
-export default function BlockPalette({ onAdd, usedTypes = [], className }) {
+export default function BlockPalette({ onAdd, usedTypes = [], exclude = [], className }) {
   const [q, setQ] = useState('')
   const term = q.trim().toLowerCase()
 
-  const entries = Object.entries(BLOCK_TYPES).filter(([, def]) =>
-    !term || def.label.toLowerCase().includes(term) || def.description.toLowerCase().includes(term),
-  )
+  const entries = Object.entries(BLOCK_TYPES)
+    .filter(([type]) => !exclude.includes(type))
+    .filter(([, def]) =>
+      !term || def.label.toLowerCase().includes(term) || def.description.toLowerCase().includes(term),
+    )
 
   return (
     <div className={cn('space-y-3', className)}>

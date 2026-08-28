@@ -13,6 +13,39 @@ import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card'
 
 const has = (v, term) => String(v || '').toLowerCase().includes(term)
 
+/**
+ * Section and Row live at module scope: defining them inside the page body made
+ * them a new component type on every keystroke, so each result list remounted
+ * rather than updating.
+ */
+function Section({ title, icon: Icon, items, render }) {
+  if (!items.length) return null
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-1.5">
+          <Icon className="h-4 w-4 text-brand" aria-hidden="true" /> {title}
+        </CardTitle>
+        <span className="text-[11.5px] text-slate-400">{items.length} result{items.length === 1 ? '' : 's'}</span>
+      </CardHeader>
+      <CardContent className="divide-y divide-slate-100 p-0">{items.map(render)}</CardContent>
+    </Card>
+  )
+}
+
+function Row({ to, primary, secondary, right, badge }) {
+  return (
+    <Link to={to} className="flex items-center gap-2.5 px-4 py-2.5 hover:bg-slate-50">
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-[13.5px] font-semibold text-slate-800">{primary}</span>
+        <span className="block truncate text-[11.5px] text-slate-400">{secondary}</span>
+      </span>
+      {right && <span className="shrink-0 text-[13px] font-bold tabular-nums text-slate-800">{right}</span>}
+      {badge && <StatusBadge className="shrink-0" status={badge} />}
+    </Link>
+  )
+}
+
 export default function SearchPage() {
   const [params] = useSearchParams()
   const db = useStore()
@@ -45,32 +78,6 @@ export default function SearchPage() {
     const c = db.clients.find((x) => x.id === id)
     return c ? c.company || c.name : '—'
   }
-
-  const Section = ({ title, icon: Icon, items, render }) => {
-    if (!items.length) return null
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-1.5">
-            <Icon className="h-4 w-4 text-brand" /> {title}
-          </CardTitle>
-          <span className="text-[11.5px] text-slate-400">{items.length} result{items.length === 1 ? '' : 's'}</span>
-        </CardHeader>
-        <CardContent className="divide-y divide-slate-100 p-0">{items.map(render)}</CardContent>
-      </Card>
-    )
-  }
-
-  const Row = ({ to, primary, secondary, right, badge }) => (
-    <Link to={to} className="flex items-center gap-2.5 px-4 py-2.5 hover:bg-slate-50">
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-[13.5px] font-semibold text-slate-800">{primary}</span>
-        <span className="block truncate text-[11.5px] text-slate-400">{secondary}</span>
-      </span>
-      {right && <span className="shrink-0 text-[13px] font-bold tabular-nums text-slate-800">{right}</span>}
-      {badge && <StatusBadge className="shrink-0" status={badge} />}
-    </Link>
-  )
 
   return (
     <div>

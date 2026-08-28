@@ -8,7 +8,7 @@ import {
 import { useStore } from '../lib/useStore'
 import { clientTotals } from '../lib/calc'
 import { formatINRCompact, formatDate, initials } from '../lib/format'
-import { deleteClient } from '../lib/store'
+import { deleteClient, clientDeletionBlockers } from '../lib/store'
 import { whatsappLink, mailtoLink, telLink, openLink } from '../lib/comms'
 import { CLIENT_STATUSES } from '../lib/seed'
 
@@ -58,11 +58,11 @@ export default function Clients() {
       />
 
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        <div className="relative min-w-[200px] flex-1">
+        <div className="relative w-full flex-1 basis-full sm:min-w-[200px] sm:basis-0">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by name, company, phone or GSTIN…" className="pl-9" />
         </div>
-        <SimpleSelect value={status} onValueChange={setStatus} options={['All', ...CLIENT_STATUSES]} className="w-[140px]" />
+        <SimpleSelect value={status} onValueChange={setStatus} options={['All', ...CLIENT_STATUSES]} className="min-w-0 flex-1 sm:w-[140px] sm:flex-none" />
         <div className="flex overflow-hidden rounded-lg border border-slate-300">
           {[
             ['grid', LayoutGrid],
@@ -240,8 +240,16 @@ export default function Clients() {
       <ConfirmDialog
         open={!!confirm}
         onOpenChange={(o) => !o && setConfirm(null)}
-        title={`Delete ${confirm?.company || confirm?.name}?`}
-        description="This also removes their projects, quotations, invoices and payment records. This cannot be undone."
+        title={
+          confirm && clientDeletionBlockers(confirm.id).length
+            ? `Archive ${confirm?.company || confirm?.name}?`
+            : `Delete ${confirm?.company || confirm?.name}?`
+        }
+        description={
+          confirm && clientDeletionBlockers(confirm.id).length
+            ? `This client has ${clientDeletionBlockers(confirm.id).join(' and ')}, so their financial records are kept. They will be archived and hidden from the active list instead of deleted.`
+            : 'This client has no invoices or payments. Their quotations and projects will be kept and unlinked.'
+        }
         onConfirm={() => deleteClient(confirm.id)}
       />
     </div>

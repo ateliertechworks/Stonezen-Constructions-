@@ -9,7 +9,7 @@ import {
 import { useStore } from '../lib/useStore'
 import { clientTotals, ledgerForClient, quotationTotals, invoiceTotals, invoiceBalance, invoiceDisplayStatus, projectSummary } from '../lib/calc'
 import { formatINR, formatINRCompact, formatDate, initials } from '../lib/format'
-import { deleteClient } from '../lib/store'
+import { deleteClient, clientDeletionBlockers } from '../lib/store'
 import { whatsappLink, mailtoLink, telLink, openLink } from '../lib/comms'
 import { generateDocumentPDF, buildLedgerHTML } from '../lib/pdf'
 
@@ -478,8 +478,16 @@ export default function ClientProfile() {
       <ConfirmDialog
         open={confirm}
         onOpenChange={setConfirm}
-        title={`Delete ${client.company || client.name}?`}
-        description="This also removes their projects, quotations, invoices and payments."
+        title={
+          clientDeletionBlockers(client.id).length
+            ? `Archive ${client.company || client.name}?`
+            : `Delete ${client.company || client.name}?`
+        }
+        description={
+          clientDeletionBlockers(client.id).length
+            ? `This client has ${clientDeletionBlockers(client.id).join(' and ')}, so their financial records are kept. They will be archived and hidden from the active list instead of deleted.`
+            : 'This client has no invoices or payments. Their quotations and projects will be kept and unlinked.'
+        }
         onConfirm={() => {
           deleteClient(client.id)
           navigate('/clients')

@@ -48,7 +48,7 @@ export const EXPENSE_CATEGORIES = [
 export const PAYMENT_METHODS = ['Bank Transfer', 'UPI', 'Cheque', 'Cash', 'NEFT/RTGS', 'Card']
 export const UNITS = ['Sqft', 'Cft', 'Rft', 'Nos', 'Lsum', 'Kg', 'Ton', 'Bag', 'Day', 'Load']
 
-export const CLIENT_STATUSES = ['Active', 'Prospect', 'Inactive']
+export const CLIENT_STATUSES = ['Active', 'Prospect', 'Inactive', 'Archived']
 export const PROJECT_STATUSES = ['Planning', 'In Progress', 'On Hold', 'Completed', 'Cancelled']
 export const QUOTATION_STATUSES = ['Draft', 'Sent', 'Accepted', 'Rejected', 'Expired']
 export const INVOICE_STATUSES = ['Draft', 'Sent', 'Paid', 'Partially Paid', 'Overdue', 'Cancelled']

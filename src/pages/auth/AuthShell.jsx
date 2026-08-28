@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
-import constructionImg from '../../../image/login.png'
-import logoImg from '../../../image/logo.png'
+import constructionImg from '../../../image/login.jpg'
+import logoImg from '../../../image/logo-mark.png'
 
 export default function AuthShell({ title, subtitle, children, footer, aside }) {
   return (
@@ -64,17 +64,19 @@ export default function AuthShell({ title, subtitle, children, footer, aside }) 
           index.css; it is inert at lg and above. */}
       <div className="auth-glass relative flex w-full flex-col justify-center px-4 py-6 sm:px-10 sm:py-10 lg:w-1/2 lg:px-16 lg:py-10">
         {/* Logo — its own floating element above the panel, not inside it.
-            logo.png is RGB with no alpha, so the artwork carries its own white.
-            Rather than let that read as a bare tile, it sits inside a translucent
-            glass frame: the frame is the floating element, the white is just the
-            mark's own paper. lg:hidden, so the desktop logo is untouched. */}
+            The mark is transparent, so it needs a white tile of its own: it sits
+            over a photographic backdrop here, and the blue would otherwise fight
+            the image. The tile then sits inside a translucent glass frame, which
+            is the floating element. lg:hidden, so the desktop logo is untouched. */}
         <Link to="/login" className="mx-auto mb-4 flex w-full max-w-sm justify-center lg:hidden">
           <span className="inline-flex rounded-[1.4rem] border border-white/30 bg-white/[0.14] p-1.5 shadow-[0_10px_30px_rgba(0,0,0,0.25)] backdrop-blur-[10px]">
-            <img
-              src={logoImg}
-              alt="Stonezen Constructions"
-              className="h-16 w-16 rounded-2xl object-contain sm:h-20 sm:w-20"
-            />
+            <span className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white p-2.5 sm:h-20 sm:w-20">
+              <img
+                src={logoImg}
+                alt="Stonezen Constructions"
+                className="h-full w-full object-contain"
+              />
+            </span>
           </span>
         </Link>
 

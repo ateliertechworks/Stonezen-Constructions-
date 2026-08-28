@@ -158,11 +158,11 @@ export default function Projects() {
         {/* On phones the search takes its own line so the status filter and the
             view toggle pair up underneath it, rather than the toggle wrapping
             alone onto a mostly empty row. flex-1 resumes at sm. */}
-        <div className="relative min-w-[200px] flex-1 basis-full sm:basis-0">
+        <div className="relative w-full flex-1 basis-full sm:min-w-[200px] sm:basis-0">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search projects, sites or clients…" className="pl-9" />
         </div>
-        <SimpleSelect value={status} onValueChange={setStatus} options={['All', ...PROJECT_STATUSES]} className="w-[150px]" />
+        <SimpleSelect value={status} onValueChange={setStatus} options={['All', ...PROJECT_STATUSES]} className="min-w-0 flex-1 sm:w-[150px] sm:flex-none" />
         <div className="flex overflow-hidden rounded-lg border border-slate-300">
           {[
             ['grid', LayoutGrid],

@@ -85,7 +85,7 @@ export default function InvoicePreview() {
                 addActivity(`Invoice ${inv.id} marked ${v}`, 'invoice')
               }}
               options={INVOICE_STATUSES}
-              className="w-[150px]"
+              className="min-w-0 flex-1 sm:w-[150px] sm:flex-none"
             />
             <Button size="sm" variant="outline" onClick={() => navigate(`/invoices/${inv.id}/edit`)}>
               <Pencil /> Edit
@@ -213,7 +213,7 @@ export default function InvoicePreview() {
         <Button className="flex-1" onClick={() => setPaymentOpen(true)}>
           <Wallet /> Payment
         </Button>
-        <Button variant="outline" size="icon" onClick={() => navigate(`/invoices/${inv.id}/edit`)}>
+        <Button variant="outline" size="icon" title="Edit invoice" onClick={() => navigate(`/invoices/${inv.id}/edit`)}>
           <Pencil />
         </Button>
       </div>

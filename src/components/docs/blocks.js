@@ -120,7 +120,8 @@ export function defaultBlocks(kind = 'quotation') {
   const order =
     kind === 'invoice'
       ? ['branding', 'metadata', 'client_details', 'items', 'totals', 'notes', 'terms', 'bank_info', 'signature']
-      : ['branding', 'metadata', 'client_details', 'project_details', 'items', 'totals', 'notes', 'payment_schedule', 'terms', 'bank_info', 'signature']
+      // Quotations carry no signature line — invoices still do.
+      : ['branding', 'metadata', 'client_details', 'project_details', 'items', 'totals', 'notes', 'payment_schedule', 'terms', 'bank_info']
   return order.map((t) => makeBlock(t))
 }
 
