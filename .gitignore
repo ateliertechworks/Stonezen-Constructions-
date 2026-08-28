@@ -26,7 +26,6 @@ dist-ssr
 # Environment / secrets — never commit real credentials
 .env
 .env.*
-!.env.example
 
 # Vercel
 .vercel
