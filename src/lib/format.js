@@ -16,13 +16,16 @@ export function formatNum(n, decimals = 2) {
   }).format(v)
 }
 
+/** "13.50" -> "13.5", "18.00" -> "18", "1.05" -> "1.05". */
+const trimZeros = (s) => s.replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '')
+
 export function formatINRCompact(n) {
   const v = Number(n || 0)
   const abs = Math.abs(v)
   const sign = v < 0 ? '-' : ''
-  if (abs >= 1e7) return `${sign}₹${(abs / 1e7).toFixed(2).replace(/\.00$/, '')}Cr`
-  if (abs >= 1e5) return `${sign}₹${(abs / 1e5).toFixed(2).replace(/\.00$/, '')}L`
-  if (abs >= 1000) return `${sign}₹${(abs / 1000).toFixed(1).replace(/\.0$/, '')}K`
+  if (abs >= 1e7) return `${sign}₹${trimZeros((abs / 1e7).toFixed(2))}Cr`
+  if (abs >= 1e5) return `${sign}₹${trimZeros((abs / 1e5).toFixed(2))}L`
+  if (abs >= 1000) return `${sign}₹${trimZeros((abs / 1000).toFixed(1))}K`
   return `${sign}₹${INR.format(abs)}`
 }
 

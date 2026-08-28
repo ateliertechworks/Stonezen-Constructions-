@@ -297,7 +297,7 @@ export default function Layout() {
           only the empty space below it shows the image. */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
         <img src={sidebarBg} alt="" className="h-full w-full object-cover object-bottom" />
-        <div className="absolute inset-0 bg-gradient-to-b from-[#0C1322] via-[#0C1322]/94 to-[#0C1322]/25" />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#0C1322] from-30% via-[#0C1322]/95 via-70% to-[#0C1322]/45" />
       </div>
 
       {/* ------------------------------------------------------------ brand */}

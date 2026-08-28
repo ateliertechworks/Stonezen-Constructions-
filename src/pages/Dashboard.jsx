@@ -17,7 +17,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card'
 import { Button } from '../components/ui/button'
 import { cn } from '../lib/utils'
 import { SERIES, CATEGORICAL, STATUS, CHROME, axisProps, ChartTooltip, compactTick, Legend } from '../components/charts'
-import heroImg from '../../image/login.jpg'
+import heroImg from '../../image/hero.jpg'
 
 const ACTIVITY_ICON = {
   quotation: FileText, invoice: ReceiptIndianRupee, payment: Wallet,
@@ -97,7 +97,9 @@ export default function Dashboard() {
       {/* Two columns rather than an absolutely-positioned image: the artwork
           used to sit on top of the headline once the viewport was wide enough
           to show it but too narrow to clear the text. */}
-      <div className="flex items-start justify-between gap-8">
+      {/* Centred against the photograph: aligned to the top, the short headline
+          left an obvious well of dead space above the figures. */}
+      <div className="flex items-center justify-between gap-8">
         <div className="min-w-0 py-1">
           <p className="text-[13.5px] text-slate-600 sm:text-[14px]">
             {greeting()}, {firstName} <span aria-hidden="true">👋</span>
@@ -110,15 +112,12 @@ export default function Dashboard() {
 
         {/* Decorative only — the figures below carry the actual information.
             Shown from xl, the first width with room for it beside the text. */}
-        <div className="relative hidden h-[176px] w-[300px] shrink-0 xl:block" aria-hidden="true">
-          <span className="absolute right-20 top-6 h-28 w-28 rounded-full bg-amber-400/90" />
-          <img
-            src={heroImg}
-            alt=""
-            className="absolute right-0 top-0 h-[176px] w-[268px] rounded-2xl object-cover opacity-95"
-            style={{ maskImage: 'linear-gradient(to left, black 62%, transparent 100%)', WebkitMaskImage: 'linear-gradient(to left, black 62%, transparent 100%)' }}
-          />
-        </div>
+        <img
+          src={heroImg}
+          alt=""
+          aria-hidden="true"
+          className="hidden h-[150px] w-[290px] shrink-0 rounded-2xl object-cover shadow-[0_10px_30px_-14px_rgba(15,23,42,0.55)] ring-1 ring-slate-900/10 xl:block"
+        />
       </div>
 
       {/* ------------------------------------------------------------ KPIs */}
@@ -245,7 +244,7 @@ export default function Dashboard() {
               {[
                 { label: 'Revenue Collected', value: a.totalRevenue, color: SERIES.revenue },
                 { label: 'Expenses Booked', value: a.totalExpenses, color: SERIES.expense },
-                { label: 'Invoiced to Date', value: a.totalInvoiced, color: '#64748b' },
+                { label: 'Invoiced to Date', value: a.totalInvoiced, color: '#94a3b8' },
               ].map((r) => {
                 const max = Math.max(a.totalRevenue, a.totalExpenses, a.totalInvoiced) || 1
                 return (
