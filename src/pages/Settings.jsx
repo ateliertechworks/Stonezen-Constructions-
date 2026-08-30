@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Settings as SettingsIcon, Building2, Landmark, FileText, Database,
@@ -10,7 +10,7 @@ import { useStore } from '../lib/useStore'
 import { updateSettings, clearData, exportData, importData } from '../lib/store'
 import {
   getSession, logout, updateProfile, changePassword, generateRecoveryCode,
-  hasRecoveryCode, isRegistrationOpen, setRegistrationOpen,
+  hasRecoveryCode, bootstrap, setRegistrationOpen,
 } from '../lib/auth'
 import { download, cn } from '../lib/utils'
 
@@ -41,8 +41,17 @@ export default function Settings() {
   const [pw, setPw] = useState({ current: '', next: '', confirm: '' })
   const [pwMsg, setPwMsg] = useState(null)
   const [recovery, setRecovery] = useState(null)
-  const [regOpen, setRegOpen] = useState(isRegistrationOpen())
-  const [hasCode, setHasCode] = useState(hasRecoveryCode())
+  // Both are the server's answer, so they load in rather than being read
+  // synchronously from this browser.
+  const [regOpen, setRegOpen] = useState(false)
+  const [hasCode, setHasCode] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    bootstrap().then((b) => !cancelled && setRegOpen(b.registrationOpen === true))
+    hasRecoveryCode().then((v) => !cancelled && setHasCode(v))
+    return () => { cancelled = true }
+  }, [])
 
   const submitPassword = async (e) => {
     e.preventDefault()
@@ -61,9 +70,12 @@ export default function Settings() {
     }
   }
 
-  const toggleRegistration = (next) => {
-    setRegistrationOpen(next)
-    setRegOpen(next)
+  const toggleRegistration = async (next) => {
+    // Only reflect the switch once the server has accepted it, so a failed
+    // write cannot leave the UI claiming registration is open when it is not.
+    const res = await setRegistrationOpen(next)
+    if (res.ok) setRegOpen(next)
+    else flash(res.error || 'Could not change that setting')
   }
 
   const flash = (msg) => {
@@ -83,9 +95,9 @@ export default function Settings() {
     updateSettings({ docs })
     flash('Document defaults saved')
   }
-  const saveProfile = () => {
-    updateProfile(profile)
-    flash('Profile updated')
+  const saveProfile = async () => {
+    const res = await updateProfile(profile)
+    flash(res.ok ? 'Profile updated' : res.error || 'Could not update profile')
   }
 
   const onLogo = (e) => {

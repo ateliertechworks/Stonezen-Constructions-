@@ -190,6 +190,31 @@ if (typeof window !== 'undefined') {
   })
 }
 
+/**
+ * Adopts a database that arrived from the server.
+ *
+ * Mirrors the cross-tab `storage` handler: re-hydrate and notify, but do not
+ * persist through `persist()` — that would be seen as a local edit and pushed
+ * straight back, and two devices would then trade the same data forever. The
+ * localStorage write is done directly so a later reload with no network still
+ * shows what was synced.
+ */
+export function applyRemoteState(raw) {
+  applyingRemote = true
+  try {
+    state = hydrate(typeof raw === 'string' ? raw : JSON.stringify(raw))
+    try { localStorage.setItem(KEY, JSON.stringify(state)) } catch { /* storage blocked */ }
+    notify()
+  } finally {
+    applyingRemote = false
+  }
+}
+
+/** True while a remote change is being applied, so sync can ignore its own echo. */
+export function isApplyingRemote() {
+  return applyingRemote
+}
+
 export function clearData() {
   const base = emptyState()
   state = {
