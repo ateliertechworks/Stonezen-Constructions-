@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen, cleanup, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import App from './App'
+import { installApiMock } from '../test/apiMock'
 
 /**
  * Smoke tests that boot the real application.
@@ -13,8 +14,18 @@ import App from './App'
  */
 
 // jsdom implements neither, and Radix and the print path both reach for them.
+let api
+
 beforeEach(() => {
   localStorage.clear()
+  // Sign-in now goes to the server, so booting the app needs one to answer.
+  api = installApiMock()
+  api.state.users.push({
+    name: 'B. Dhanasundaran',
+    email: 'stonezenconstructions@gmail.com',
+    password: 'stonezen',
+    role: 'Owner',
+  })
   window.history.pushState({}, '', '/')
   if (!window.matchMedia) {
     window.matchMedia = () => ({
@@ -24,9 +35,12 @@ beforeEach(() => {
   }
 })
 
-afterEach(cleanup)
+afterEach(() => {
+  cleanup()
+  api.restore()
+})
 
-/** The dev build pre-fills the demo credentials, so clear before typing. */
+/** The sign-in form starts empty in a test build, so type the credentials in. */
 const fill = async (user, password) => {
   const email = screen.getByLabelText(/email/i)
   const pw = screen.getByLabelText(/^password/i)

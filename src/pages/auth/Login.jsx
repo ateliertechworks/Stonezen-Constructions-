@@ -1,11 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { AlertCircle, LogIn } from 'lucide-react'
 import AuthShell from './AuthShell'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Field } from '../../components/ui/label'
-import { login, needsFirstRunSetup } from '../../lib/auth'
+import { login, bootstrap } from '../../lib/auth'
 
 export default function Login() {
   const navigate = useNavigate()
@@ -13,11 +13,24 @@ export default function Login() {
   // The demo credentials are a development convenience; a deployed build must
   // not ship a working password in its own login form.
   const demo = import.meta.env.DEV
-  const firstRun = needsFirstRunSetup()
+  // Whether an owner account exists is the server's answer now, not this
+  // browser's, so it arrives after the first render rather than during it.
+  const [firstRun, setFirstRun] = useState(false)
+  const [offline, setOffline] = useState(false)
   const [email, setEmail] = useState(demo ? 'stonezenconstructions@gmail.com' : '')
   const [password, setPassword] = useState(demo ? 'stonezen' : '')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    bootstrap().then((b) => {
+      if (cancelled) return
+      setFirstRun(b.needsFirstRunSetup === true)
+      setOffline(b.unreachable === true)
+    })
+    return () => { cancelled = true }
+  }, [])
 
   const submit = async (e) => {
     e.preventDefault()
@@ -35,11 +48,11 @@ export default function Login() {
       subtitle="Welcome back. Pick up where you left off."
       aside={
         <p className="glass-note rounded-xl border border-white/25 bg-white/[0.12] px-3 py-2 text-center text-[11.5px] text-slate-500 backdrop-blur-[10px] lg:rounded-lg lg:border-0 lg:bg-slate-50 lg:backdrop-blur-none">
-          {firstRun
-            ? 'No account exists on this device yet — create the owner account to begin.'
-            : demo
-              ? 'Demo account is pre-filled — data is stored locally in this browser.'
-              : 'Your data is stored locally in this browser. Export a backup from Settings regularly.'}
+          {offline
+            ? 'Cannot reach the Stonezen server. Check your connection and try again.'
+            : firstRun
+              ? 'No account exists yet — create the owner account to begin.'
+              : 'Your data is stored on the Stonezen server and shared across your devices.'}
         </p>
       }
       footer={

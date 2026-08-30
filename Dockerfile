@@ -7,6 +7,15 @@ COPY package.json package-lock.json ./
 RUN npm ci
 
 COPY . .
+
+# Vite inlines VITE_* at build time, so this has to be present during the build
+# rather than supplied to the running container. Declaring it as an ARG and
+# promoting it to an ENV is what makes Coolify's build variable visible to Vite;
+# without this the bundle is built with an undefined API base and silently
+# talks to its own origin instead.
+ARG VITE_API_BASE_URL=""
+ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
+
 RUN npm run build
 
 # ----------------------------------------------------------------- serve

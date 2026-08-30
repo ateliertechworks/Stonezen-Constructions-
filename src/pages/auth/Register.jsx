@@ -1,11 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { AlertCircle, UserPlus, Lock } from 'lucide-react'
 import AuthShell from './AuthShell'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Field } from '../../components/ui/label'
-import { register, isRegistrationOpen, needsFirstRunSetup } from '../../lib/auth'
+import { register, bootstrap } from '../../lib/auth'
 
 export default function Register() {
   const navigate = useNavigate()
@@ -14,8 +14,20 @@ export default function Register() {
   const [busy, setBusy] = useState(false)
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
   // A fresh install has no accounts yet: the first person through is the owner.
-  const firstRun = needsFirstRunSetup()
-  const open = firstRun || isRegistrationOpen()
+  // Both answers come from the server. Until it replies, assume registration is
+  // closed: briefly showing a closed form is harmless, while briefly offering an
+  // open one on a public URL is not.
+  const [{ firstRun, open }, setGate] = useState({ firstRun: false, open: false })
+
+  useEffect(() => {
+    let cancelled = false
+    bootstrap().then((b) => {
+      if (cancelled) return
+      const first = b.needsFirstRunSetup === true
+      setGate({ firstRun: first, open: first || b.registrationOpen === true })
+    })
+    return () => { cancelled = true }
+  }, [])
 
   const submit = async (e) => {
     e.preventDefault()
