@@ -6,6 +6,8 @@ import {
   findUserByEmail, countUsers, createUser, verifySecret, hashSecret,
 } from './auth.js'
 
+let migrationState = { ready: false, error: null }
+
 const app = express()
 app.disable('x-powered-by')
 app.set('trust proxy', 1)
@@ -68,9 +70,11 @@ setInterval(() => {
 app.get('/api/health', async (_req, res) => {
   try {
     await query('SELECT 1')
-    res.json({ ok: true, db: true })
+    res.json({ ok: true, db: true, migrated: migrationState.ready })
   } catch (e) {
-    res.status(503).json({ ok: false, db: false, error: e.message })
+    // The message names the host it could not reach, which is the difference
+    // between "database is down" and "wrong hostname in DATABASE_URL".
+    res.status(503).json({ ok: false, db: false, error: e.message, migration: migrationState.error })
   }
 })
 
@@ -341,11 +345,21 @@ app.use((err, _req, res, _next) => {
 /* ---------------------------------------------------------------- boot */
 
 const port = Number(process.env.PORT || 8080)
+
+/**
+ * Listen first, migrate after.
+ *
+ * Migrating before listening means a database that is slow to start — or
+ * unreachable — leaves nothing on the port, so the orchestrator's health check
+ * fails, the container is killed, and the only evidence of why is inside the
+ * container that just died. Serving immediately means the failure can always be
+ * read from /api/health.
+ */
+app.listen(port, '0.0.0.0', () => console.log(`stonezen api listening on ${port}`))
+
 migrate()
-  .then(() => {
-    app.listen(port, '0.0.0.0', () => console.log(`stonezen api listening on ${port}`))
-  })
+  .then(() => { migrationState = { ready: true, error: null } })
   .catch((e) => {
-    console.error('FATAL: could not apply schema', e)
-    process.exit(1)
+    console.error('could not apply schema', e)
+    migrationState = { ready: false, error: e.message }
   })
