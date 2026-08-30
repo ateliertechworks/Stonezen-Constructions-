@@ -73,8 +73,12 @@ export async function pull({ adopt = true } = {}) {
   try {
     const res = await get('/state')
     if (res.blob === null) {
-      // Nothing stored yet — seed the server from this browser.
-      return await push({ force: true })
+      // Nothing stored yet — seed the server from this browser. Adopt the
+      // server's version first: this browser may be holding a higher one from
+      // a database that has since been reset, and pushing that stale number
+      // would be refused as a conflict on what is actually a fresh install.
+      writeVersion(res.version)
+      return await push()
     }
     if (adopt && Number(res.version) !== version) {
       applyRemoteState(res.blob)
@@ -94,15 +98,12 @@ export async function pull({ adopt = true } = {}) {
 
 /**
  * Sends the local database up, refusing to clobber a newer server copy.
- *
- * `force` is used only to seed an empty server, where version 0 is genuinely
- * what is stored and there is nothing to lose.
  */
-export async function push({ force = false } = {}) {
+export async function push() {
   if (!getToken()) return { ok: false, reason: 'signed-out' }
   setStatus('syncing')
   try {
-    const res = await put('/state', { version: force ? version : version, blob: getState() })
+    const res = await put('/state', { version, blob: getState() })
     writeVersion(res.version)
     conflict = null
     setStatus('saved')

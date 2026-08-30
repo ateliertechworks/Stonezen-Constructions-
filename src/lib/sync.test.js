@@ -36,6 +36,25 @@ describe('first sync against an empty server', () => {
   })
 })
 
+describe('a server that was reset while this browser kept syncing', () => {
+  it('seeds it again instead of showing a conflict on a fresh install', async () => {
+    // Sync normally, so this browser is holding a version above zero.
+    addClient({ name: 'Before The Reset' })
+    await sync.pull()
+    expect(sync.getSyncStatus().version).toBeGreaterThan(0)
+
+    // The database is recreated: back to version 0 with nothing stored.
+    api.state.version = 0
+    api.state.blob = null
+
+    const res = await sync.pull()
+
+    expect(res.ok).toBe(true)
+    expect(sync.getSyncStatus().status).not.toBe('conflict')
+    expect(api.state.blob.clients.map((c) => c.name)).toContain('Before The Reset')
+  })
+})
+
 describe('pulling a database saved elsewhere', () => {
   it('adopts it into the local store', async () => {
     api.remoteWrite({ ...getState(), clients: [{ id: 'CL-2026-001', name: 'From The Office PC' }] })
