@@ -401,7 +401,7 @@ export default function Layout() {
       )}
 
       <div className={cn('transition-[padding] duration-200', collapsed ? 'lg:pl-20' : 'lg:pl-64')}>
-        <header className="sticky top-0 z-30 flex h-16 items-center gap-2 border-b border-slate-200 bg-white px-3 sm:gap-3 sm:px-5">
+        <header className="safe-x sticky top-0 z-30 flex h-16 items-center gap-2 border-b border-slate-200 bg-white sm:gap-3">
           <button
             className="shrink-0 rounded-lg p-2 text-slate-600 hover:bg-slate-100 lg:hidden"
             onClick={() => setDrawer(true)}

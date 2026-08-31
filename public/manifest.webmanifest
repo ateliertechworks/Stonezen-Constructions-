@@ -1,0 +1,26 @@
+{
+  "id": "/",
+  "name": "Stonezen OS — Construction Business Management",
+  "short_name": "Stonezen OS",
+  "description": "Clients, projects, quotations, invoices, payments and expenses for Stonezen Constructions.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#ffffff",
+  "theme_color": "#1e3a8a",
+  "lang": "en-IN",
+  "dir": "ltr",
+  "categories": ["business", "productivity", "finance"],
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-192-maskable.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "New quotation", "short_name": "Quotation", "url": "/quotations/new", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
+    { "name": "New invoice", "short_name": "Invoice", "url": "/invoices/new", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Follow-ups", "short_name": "Follow-ups", "url": "/followups", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] }
+  ]
+}
