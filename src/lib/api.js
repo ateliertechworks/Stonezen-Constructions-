@@ -68,12 +68,21 @@ export async function request(path, { method = 'GET', body, timeoutMs = 30_000, 
 
   const text = await res.text()
   let parsed = null
-  try { parsed = text ? JSON.parse(text) : null } catch { /* not json — handled below */ }
+  let malformed = false
+  try { parsed = text ? JSON.parse(text) : null } catch { malformed = true }
 
   if (res.status === 401) setToken(null)
 
   if (!res.ok) {
     throw new ApiError(parsed?.error || `Request failed (${res.status}).`, res.status, parsed)
+  }
+  // A 200 whose body is not JSON is not this API answering. It means the base
+  // URL points at the SPA's own origin, where the nginx SPA fallback returns
+  // index.html for every unknown path — the exact failure a missing build-time
+  // VITE_API_BASE_URL produces. Raising here is what stops it reaching callers
+  // as a null they immediately dereference.
+  if (malformed) {
+    throw new ApiError('The server sent an unexpected response. Check VITE_API_BASE_URL.', 0, null)
   }
   return parsed
 }

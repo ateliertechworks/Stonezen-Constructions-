@@ -144,6 +144,24 @@ describe('an unreachable server', () => {
     expect(sync.getSyncStatus().status).toBe('offline')
     expect(getState().clients.map((c) => c.name)).toContain('Written While Offline')
   })
+
+  /**
+   * A build whose API base points at the SPA's own origin reaches the nginx SPA
+   * fallback, which answers every unknown path with index.html and a 200. That
+   * must read as "no server", not as a successful empty response — the latter
+   * used to hand callers a null they dereferenced on the sign-in screen.
+   */
+  it('treats an HTML 200 from a misconfigured API base as offline', async () => {
+    addClient({ name: 'Written Against The Wrong Base' })
+    globalThis.fetch = () =>
+      Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('<!doctype html><html></html>') })
+
+    const res = await sync.push()
+
+    expect(res.ok).toBe(false)
+    expect(sync.getSyncStatus().status).toBe('offline')
+    expect(getState().clients.map((c) => c.name)).toContain('Written Against The Wrong Base')
+  })
 })
 
 describe('the status snapshot', () => {

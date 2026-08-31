@@ -103,6 +103,21 @@
   .auth-glass { padding-bottom: calc(2.5rem + env(safe-area-inset-bottom, 0px)); }
 }
 
+/* Installed as a PWA the app runs without browser chrome, so `viewport-fit=cover`
+   stops being cosmetic: held in landscape, a notched phone would put the menu
+   button and the avatar underneath the notch. `max()` keeps the existing padding
+   wherever there is no inset, which is every desktop and every un-notched phone. */
+.safe-x {
+  padding-left: max(0.75rem, env(safe-area-inset-left, 0px));
+  padding-right: max(0.75rem, env(safe-area-inset-right, 0px));
+}
+@media (min-width: 640px) {
+  .safe-x {
+    padding-left: max(1.25rem, env(safe-area-inset-left, 0px));
+    padding-right: max(1.25rem, env(safe-area-inset-right, 0px));
+  }
+}
+
 /**
  * Grid items size to `min-width: auto` by default, which means one wide child —
  * a data table, a long unbroken reference number — stretches its track and
