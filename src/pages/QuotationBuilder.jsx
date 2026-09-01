@@ -332,14 +332,14 @@ export default function QuotationBuilder() {
   )
 
   const PreviewPane = (
-    <div className="lg:sticky lg:top-[72px]">
+    <div className="xl:sticky xl:top-[72px]">
       <div className="mb-2 flex items-center justify-between gap-2">
         <p className="text-[12px] font-semibold text-slate-500">
           Live preview {selected && <span className="text-slate-400">· {BLOCK_TYPES[selected.type].label} selected</span>}
         </p>
         <p className="text-[13px] font-bold tabular-nums text-slate-800">{formatINR(totals.grandTotal)}</p>
       </div>
-      <div className="max-h-[calc(100vh-160px)] overflow-auto rounded-xl bg-slate-100 p-3 lg:p-4">
+      <div className="max-h-[calc(100vh-160px)] overflow-auto rounded-xl bg-slate-100 p-3 xl:p-4">
         <div>
           <DocumentView
             doc={{ ...doc, id: savedId || doc.quotationNumber }}
@@ -390,7 +390,7 @@ export default function QuotationBuilder() {
       />
 
       {/* Mobile pane switcher */}
-      <div className="mb-3 grid grid-cols-2 gap-1 rounded-lg bg-slate-100 p-1 lg:hidden">
+      <div className="mb-3 grid grid-cols-2 gap-1 rounded-lg bg-slate-100 p-1 xl:hidden">
         {[
           ['edit', 'Editor'],
           ['preview', 'Preview'],
@@ -408,9 +408,14 @@ export default function QuotationBuilder() {
         ))}
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,460px)_minmax(0,1fr)] xl:grid-cols-[minmax(0,520px)_minmax(0,1fr)]">
-        <div className={cn(pane === 'edit' ? 'block' : 'hidden', 'lg:block')}>{EditorPane}</div>
-        <div className={cn(pane === 'preview' ? 'block' : 'hidden', 'lg:block')}>{PreviewPane}</div>
+      {/* The split waits for xl, not lg. At 1024px the sidebar takes 256px and
+          the editor 460px, which left the preview about 270px wide — an A4 page
+          squeezed to a third of its width, with the letterhead wrapping
+          mid-address. Below xl the Editor/Preview toggle above is used instead,
+          which shows each of them full width. */}
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,440px)_minmax(0,1fr)] 2xl:grid-cols-[minmax(0,520px)_minmax(0,1fr)]">
+        <div className={cn(pane === 'edit' ? 'block' : 'hidden', 'xl:block')}>{EditorPane}</div>
+        <div className={cn(pane === 'preview' ? 'block' : 'hidden', 'xl:block')}>{PreviewPane}</div>
       </div>
 
       {/* Mobile action bar */}

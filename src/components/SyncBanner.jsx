@@ -69,7 +69,10 @@ export default function SyncBanner() {
 
   return (
     <div
-      className={`pointer-events-none fixed bottom-3 right-3 z-50 flex items-center gap-1.5 rounded-full border border-slate-200 bg-white/95 px-3 py-1.5 text-[12px] shadow-sm ${entry.tone}`}
+      // Clear of the mobile furniture: the tab bar owns the bottom 56px and a
+      // page's action bar sits on top of that, so at `bottom-3` this pill
+      // covered the Save and PDF buttons on every builder screen.
+      className={`pointer-events-none fixed bottom-[116px] right-3 z-50 sm:bottom-3 flex items-center gap-1.5 rounded-full border border-slate-200 bg-white/95 px-3 py-1.5 text-[12px] shadow-sm ${entry.tone}`}
       role="status"
       aria-live="polite"
     >
