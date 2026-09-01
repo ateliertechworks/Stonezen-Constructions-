@@ -1,16 +1,18 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { Save, Download, Eye, FileText, Layers, LayoutTemplate, SlidersHorizontal, Check, Copy } from 'lucide-react'
+import { Save, Download, Eye, FileText, Layers, LayoutTemplate, SlidersHorizontal, Check, Copy, Loader2 } from 'lucide-react'
 
 import { useStore } from '../lib/useStore'
 import { addInvoice, updateInvoice, blankInvoice, addActivity } from '../lib/store'
 import { invoiceTotals, invoicePaid, invoiceDisplayStatus } from '../lib/calc'
 import { formatINR, addDaysISO } from '../lib/format'
 import { downloadInvoice } from '../lib/pdf'
+import { useAsyncAction } from '../lib/useAsyncAction'
 import { INVOICE_STATUSES } from '../lib/seed'
 import { NONE, toSel, fromSel, cn } from '../lib/utils'
 
 import PageHeader from '../components/ui/PageHeader'
+import ActionError from '../components/ui/ActionError'
 import { Button } from '../components/ui/button'
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card'
 import { Input } from '../components/ui/input'
@@ -71,6 +73,7 @@ export default function InvoiceBuilder() {
   const [tab, setTab] = useState('details')
   const [saved, setSaved] = useState(!!existing)
   const [savedId, setSavedId] = useState(existing?.id || null)
+  const pdf = useAsyncAction()
 
   useEffect(() => {
     if (existing && existing.id !== savedId) {
@@ -128,10 +131,15 @@ export default function InvoiceBuilder() {
 
   const saveAndPreview = () => navigate(`/invoices/${save()}/preview`)
 
+  // Generating a PDF now loads a renderer over the network, so it needs the
+  // same busy-and-error handling as the preview pages — a bare call here would
+  // leave the button looking dead and swallow a failure entirely.
   const downloadPdf = () =>
-    downloadInvoice(
-      { ...doc, id: savedId || doc.invoiceNumber },
-      client, project, db.settings, totals, paid, balance, displayStatus,
+    pdf.run(() =>
+      downloadInvoice(
+        { ...doc, id: savedId || doc.invoiceNumber },
+        client, project, db.settings, totals, paid, balance, displayStatus,
+      ),
     )
 
   const clientOptions = db.clients.map((c) => ({ value: c.id, label: c.company || c.name }))
@@ -365,8 +373,8 @@ export default function InvoiceBuilder() {
         }
         actions={
           <div className="hidden gap-2 sm:flex">
-            <Button size="sm" variant="outline" onClick={downloadPdf}>
-              <Download /> PDF
+            <Button size="sm" variant="outline" onClick={downloadPdf} disabled={pdf.busy}>
+              {pdf.busy ? <Loader2 className="animate-spin" /> : <Download />} PDF
             </Button>
             <Button size="sm" variant="outline" onClick={saveAndPreview} disabled={!doc.clientId}>
               <Eye /> Preview
@@ -399,13 +407,15 @@ export default function InvoiceBuilder() {
       </div>
 
       <div className="fixed inset-x-0 bottom-[56px] z-30 flex gap-2 border-t border-slate-200 bg-white/95 px-3 py-2 backdrop-blur sm:hidden">
-        <Button variant="outline" className="flex-1" onClick={downloadPdf}>
-          <Download /> PDF
+        <Button variant="outline" className="flex-1" onClick={downloadPdf} disabled={pdf.busy}>
+          {pdf.busy ? <Loader2 className="animate-spin" /> : <Download />} PDF
         </Button>
         <Button className="flex-1" onClick={save} disabled={!doc.clientId}>
           {saved ? <Check /> : <Save />} {saved ? 'Saved' : 'Save'}
         </Button>
       </div>
+
+      <ActionError action={pdf} />
     </div>
   )
 }

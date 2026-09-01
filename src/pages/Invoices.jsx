@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   ReceiptIndianRupee, Plus, Search, Pencil, Trash2, Download, Eye, Wallet, Clock, IndianRupee,
-  AlertTriangle,
+  AlertTriangle, Loader2,
 } from 'lucide-react'
 
 import { useStore } from '../lib/useStore'
@@ -10,6 +10,7 @@ import { invoiceTotals, invoicePaid, invoiceBalance, invoiceDisplayStatus, isLiv
 import { formatINR, formatINRCompact, formatDate, daysUntil } from '../lib/format'
 import { deleteInvoice } from '../lib/store'
 import { downloadInvoice } from '../lib/pdf'
+import { useAsyncAction } from '../lib/useAsyncAction'
 import { INVOICE_STATUSES } from '../lib/seed'
 
 import PageHeader from '../components/ui/PageHeader'
@@ -18,6 +19,7 @@ import StatusBadge from '../components/ui/StatusBadge'
 import StatCard from '../components/ui/StatCard'
 import MobileOverview from '../components/ui/MobileOverview'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
+import ActionError from '../components/ui/ActionError'
 import PaymentDialog from '../components/forms/PaymentDialog'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
@@ -32,6 +34,10 @@ export default function Invoices() {
   const [status, setStatus] = useState('All')
   const [confirm, setConfirm] = useState(null)
   const [payFor, setPayFor] = useState(null)
+  const pdf = useAsyncAction()
+  // Which row is rendering. One shared busy flag would spin every row's icon
+  // at once, which reads as the whole table having locked up.
+  const [pdfFor, setPdfFor] = useState(null)
 
   const rows = useMemo(() => {
     const term = q.trim().toLowerCase()
@@ -209,9 +215,15 @@ export default function Invoices() {
                           <Button size="iconSm" variant="ghost" title="Edit" onClick={() => navigate(`/invoices/${inv.id}/edit`)}>
                             <Pencil />
                           </Button>
-                          <Button size="iconSm" variant="ghost" title="Download PDF"
-                            onClick={() => downloadInvoice(inv, client, project, db.settings, totals, paid, balance, display)}>
-                            <Download />
+                          <Button
+                            size="iconSm" variant="ghost" title="Download PDF" disabled={pdf.busy}
+                            onClick={() => {
+                              setPdfFor(inv.id)
+                              pdf.run(() => downloadInvoice(inv, client, project, db.settings, totals, paid, balance, display))
+                                .finally(() => setPdfFor(null))
+                            }}
+                          >
+                            {pdf.busy && pdfFor === inv.id ? <Loader2 className="animate-spin" /> : <Download />}
                           </Button>
                           <Button size="iconSm" variant="ghost" title="Delete" className="text-red-500 hover:bg-red-50" onClick={() => setConfirm(inv)}>
                             <Trash2 />
@@ -226,6 +238,8 @@ export default function Invoices() {
           </TableWrap>
         </>
       )}
+
+      <ActionError action={pdf} />
 
       <PaymentDialog
         open={!!payFor}

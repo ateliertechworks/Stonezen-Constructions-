@@ -490,15 +490,23 @@ export function deleteInvoice(id) {
   invoiceCrud.remove(id)
 }
 
-/** Converts an accepted quotation into a draft invoice (items carried across). */
-export function createInvoiceFromQuotation(q) {
-  const client = state.clients.find((c) => c.id === q.clientId)
-  const inv = addInvoice({
+/**
+ * The invoice fields a quotation implies, before the user has said anything.
+ *
+ * Split out from `createInvoiceFromQuotation` so the convert dialog can show
+ * exactly what is about to be carried across — and let the user change it —
+ * without duplicating the mapping rules in the UI.
+ */
+export function invoiceDraftFromQuotation(q, db = state) {
+  const client = db.clients.find((c) => c.id === q.clientId)
+  return {
     clientId: q.clientId,
     projectId: q.projectId,
     quotationId: q.id,
-    billingAddress: client?.address ? `${client.address}, ${client.city} ${client.pincode}` : q.siteAddress,
-    shippingAddress: q.siteAddress,
+    billingAddress: client?.address
+      ? [client.address, client.city, client.pincode].filter(Boolean).join(', ')
+      : q.siteAddress || '',
+    shippingAddress: q.siteAddress || '',
     gstin: q.gstin || client?.gstin || '',
     gstEnabled: !!q.gstEnabled,
     gst: q.gst,
@@ -506,20 +514,61 @@ export function createInvoiceFromQuotation(q) {
     discount: q.discount || 0,
     additionalCharges: q.additionalCharges || 0,
     autoRoundOff: q.autoRoundOff !== false,
+    // The manual amount has to travel with the flag. Carrying `autoRoundOff:
+    // false` while dropping `roundOff` left the invoice rounding by a figure
+    // the quotation never named.
+    roundOff: q.autoRoundOff === false ? Number(q.roundOff) || 0 : 0,
     notes: `Generated from quotation ${q.id}.`,
     status: 'Draft',
-    items: (q.items || []).map((it, i) => ({
-      sno: i + 1,
-      description: it.description,
-      unit: it.unit,
-      quantity: Number(it.area || 0),
-      rate: Number(it.rate || 0),
-      amount: Number(it.amount || 0),
-    })),
+    items: quotationItemsAsInvoiceItems(q.items),
+  }
+}
+
+/**
+ * Re-keys quotation lines for an invoice: a quotation measures `area`, an
+ * invoice bills `quantity`. Same number, different column heading — getting
+ * this wrong silently zeroes every line total.
+ */
+export function quotationItemsAsInvoiceItems(items = []) {
+  return items.map((it, i) => ({
+    sno: i + 1,
+    description: it.description,
+    unit: it.unit,
+    quantity: Number(it.area || 0),
+    rate: Number(it.rate || 0),
+    amount: Number(it.amount || 0),
+  }))
+}
+
+/**
+ * Converts an accepted quotation into a draft invoice.
+ *
+ * `overrides` is whatever the convert dialog collected — extra line items the
+ * quotation never had, a different due date, GST switched off. Called with no
+ * overrides it reproduces the old straight-across behaviour, which is what the
+ * existing tests rely on.
+ */
+export function createInvoiceFromQuotation(q, overrides = {}) {
+  // One batch, so the invoice, the project's pointer and the activity line are
+  // a single persist and a single render rather than three of each.
+  return batch(() => {
+    const draft = { ...invoiceDraftFromQuotation(q), ...overrides }
+    // A row appended in the dialog arrives without an sno, and removing a row
+    // leaves a gap. Renumber once, here, so the PDF cannot print "1, 2, 4".
+    draft.items = (draft.items || []).map((it, i) => ({ ...it, sno: i + 1 }))
+
+    const inv = addInvoice(draft)
+
+    // Only claim the project's primary invoice slot if nothing holds it yet.
+    // Overwriting it would silently detach the project's existing invoice — the
+    // Payment dialog defaults to `project.invoiceId`, so the next payment would
+    // have been booked against the wrong document.
+    const project = q.projectId ? state.projects.find((p) => p.id === q.projectId) : null
+    if (project && !project.invoiceId) updateProject(project.id, { invoiceId: inv.id })
+
+    addActivity(`Invoice ${inv.id} generated from quotation ${q.id}`, 'invoice')
+    return inv
   })
-  if (q.projectId) updateProject(q.projectId, { invoiceId: inv.id })
-  addActivity(`Invoice ${inv.id} generated from quotation ${q.id}`, 'invoice')
-  return inv
 }
 
 /* --------------------------------------------------------- payments/spend */

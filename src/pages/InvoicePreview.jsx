@@ -2,13 +2,16 @@ import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   Download, Pencil, MessageCircle, Mail, Trash2, Printer, Wallet, Send, FileText,
+  Share2, Loader2,
 } from 'lucide-react'
 
 import { useStore } from '../lib/useStore'
 import { invoiceTotals, invoicePaid, invoiceBalance, invoiceDisplayStatus } from '../lib/calc'
 import { updateInvoice, deleteInvoice, addActivity } from '../lib/store'
 import { formatINR, formatDate } from '../lib/format'
-import { downloadInvoice } from '../lib/pdf'
+import { downloadInvoice, printInvoice, shareInvoice } from '../lib/pdf'
+import { canShareFiles } from '../lib/download'
+import { useAsyncAction } from '../lib/useAsyncAction'
 import { whatsappLink, mailtoLink, openLink, invoiceReminderWhatsApp, invoiceReminderEmail } from '../lib/comms'
 import { INVOICE_STATUSES } from '../lib/seed'
 import { normalizeBlocks } from '../components/docs/blocks'
@@ -17,6 +20,7 @@ import PageHeader from '../components/ui/PageHeader'
 import EmptyState from '../components/ui/EmptyState'
 import StatusBadge from '../components/ui/StatusBadge'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
+import ActionError from '../components/ui/ActionError'
 import PaymentDialog from '../components/forms/PaymentDialog'
 import DocumentView from '../components/docs/DocumentView'
 import { Button } from '../components/ui/button'
@@ -30,6 +34,8 @@ export default function InvoicePreview() {
   const navigate = useNavigate()
   const [confirm, setConfirm] = useState(false)
   const [paymentOpen, setPaymentOpen] = useState(false)
+  const pdfAction = useAsyncAction()
+  const shareable = canShareFiles()
 
   const inv = db.invoices.find((i) => i.id === id)
   const totals = useMemo(() => invoiceTotals(inv || {}), [inv])
@@ -52,7 +58,21 @@ export default function InvoicePreview() {
   const status = invoiceDisplayStatus(db, inv)
   const payments = db.payments.filter((p) => p.invoiceId === inv.id)
 
-  const pdf = () => downloadInvoice(inv, client, project, db.settings, totals, paid, balance, status)
+  const savePdf = () =>
+    pdfAction.run(() => downloadInvoice(inv, client, project, db.settings, totals, paid, balance, status))
+
+  const sharePdf = () =>
+    pdfAction.run(async () => {
+      const how = await shareInvoice(
+        inv, client, project, db.settings, totals, paid, balance, status,
+        invoiceReminderWhatsApp(client, inv, balance, db.settings.company),
+      )
+      if (how === 'unsupported') {
+        return downloadInvoice(inv, client, project, db.settings, totals, paid, balance, status)
+      }
+      if (how === 'shared') addActivity(`Invoice ${inv.id} PDF shared with ${client?.name || 'client'}`, 'invoice')
+      return how
+    })
 
   const remindWhatsApp = () => {
     addActivity(`Payment reminder for ${inv.id} sent on WhatsApp`, 'invoice')
@@ -90,8 +110,8 @@ export default function InvoicePreview() {
             <Button size="sm" variant="outline" onClick={() => navigate(`/invoices/${inv.id}/edit`)}>
               <Pencil /> Edit
             </Button>
-            <Button size="sm" variant="outline" onClick={pdf}>
-              <Download /> PDF
+            <Button size="sm" variant="outline" onClick={savePdf} disabled={pdfAction.busy}>
+              {pdfAction.busy ? <Loader2 className="animate-spin" /> : <Download />} PDF
             </Button>
             <Button size="sm" onClick={() => setPaymentOpen(true)}>
               <Wallet /> Record Payment
@@ -144,8 +164,19 @@ export default function InvoicePreview() {
           <Card>
             <CardContent className="space-y-2 p-3">
               <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">Actions</p>
-              <Button className="w-full justify-start" variant="outline" onClick={pdf}>
-                <Printer /> Print / Save as PDF
+              <Button className="w-full justify-start" onClick={savePdf} disabled={pdfAction.busy}>
+                {pdfAction.busy ? <Loader2 className="animate-spin" /> : <Download />} Download PDF
+              </Button>
+              {shareable && (
+                <Button className="w-full justify-start" variant="outline" onClick={sharePdf} disabled={pdfAction.busy}>
+                  <Share2 /> Share PDF
+                </Button>
+              )}
+              <Button
+                className="w-full justify-start" variant="outline"
+                onClick={() => printInvoice(inv, client, project, db.settings, totals, paid, balance, status)}
+              >
+                <Printer /> Print
               </Button>
               <Button className="w-full justify-start" variant="whatsapp" onClick={remindWhatsApp} disabled={!client?.phone && !client?.whatsapp}>
                 <MessageCircle /> Payment reminder
@@ -207,8 +238,8 @@ export default function InvoicePreview() {
       </div>
 
       <div className="fixed inset-x-0 bottom-[56px] z-30 flex gap-2 border-t border-slate-200 bg-white/95 px-3 py-2 backdrop-blur sm:hidden">
-        <Button variant="outline" className="flex-1" onClick={pdf}>
-          <Download /> PDF
+        <Button variant="outline" className="flex-1" onClick={savePdf} disabled={pdfAction.busy}>
+          {pdfAction.busy ? <Loader2 className="animate-spin" /> : <Download />} PDF
         </Button>
         <Button className="flex-1" onClick={() => setPaymentOpen(true)}>
           <Wallet /> Payment
@@ -217,6 +248,8 @@ export default function InvoicePreview() {
           <Pencil />
         </Button>
       </div>
+
+      <ActionError action={pdfAction} />
 
       <PaymentDialog
         open={paymentOpen}

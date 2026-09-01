@@ -126,6 +126,11 @@ the element that caused it:
 npm run dev                 # in one terminal
 npm run audit:responsive    # in another
 SHOTS=1 OUT_DIR=/tmp/shots npm run audit:responsive   # also write screenshots
+
+# Detail routes need a record to open, so point it at a JSON export:
+AUDIT_DB=./backup.json \
+AUDIT_ROUTES="project=/projects/PRJ-2026-27-001,quote=/quotations/QT-2026-27-001/preview" \
+  npm run audit:responsive
 ```
 
 It exits quietly if no Chrome is installed, so it is safe to run anywhere. The
@@ -197,13 +202,13 @@ clears the stored token rather than looping on a session that can never succeed.
 |---|---|
 | **Dashboard** | Revenue/profit/pipeline KPIs, revenue-vs-expense chart, payment and project status donuts, activity feed |
 | **Clients** | Card or table view, contact actions, per-client hub with Overview / Projects / Quotations / Invoices / **Ledger** / Payments tabs |
-| **Projects** | Contract value vs collections vs expenses, live profit and margin, linked documents, site expense register |
+| **Projects** | Contract value vs collections vs expenses, live profit and margin, linked documents, site expense register, **site photo gallery** |
 | **Quotations** | Three-panel builder — details + line items + GST/totals + milestone schedule, drag-and-drop layout, block palette, live preview |
-| **Invoices** | Same builder for billing; converts from a quotation in one click; tracks paid/balance and derived status |
+| **Invoices** | Same builder for billing; converts from a quotation through a dialog that takes extra items; tracks paid/balance and derived status |
 | **Payments / Expenses** | Ledgers that feed invoice balances, project profit and the accounts view |
 | **Accounts** | Monthly trend, expense breakdown, GST summary (CGST/SGST/IGST), outstanding receivables, CSV export |
 | **Follow-ups** | Sent quotations ranked by how long they've been quiet, with ready-written WhatsApp and email messages |
-| **Documents** | Every quotation and invoice in one list, each downloadable as PDF |
+| **Documents** | Every quotation and invoice in one list, each downloadable as a real PDF file or shared straight to WhatsApp |
 | **Settings** | Company profile and logo, banking details, numbering prefixes, document defaults, security (password, recovery code, sign-up), data tools |
 
 ## Documents and PDFs
@@ -213,12 +218,62 @@ totals, payment schedule, notes, terms, bank info, signature, plus free heading/
 divider/spacer). Reorder them by dragging, toggle visibility, duplicate, or edit each
 block's properties. The layout is saved with the record.
 
-PDFs are produced by writing a self-contained HTML document into a hidden iframe and
-calling `window.print()` (`src/lib/pdf.js`). `html2canvas` is deliberately avoided —
-it cannot resolve Tailwind's colour tokens and renders blank or mis-coloured pages.
-The print route gives crisp, selectable, correctly paginated A4 output, and the
-document is pinned to `color-scheme: light` so a viewer in dark mode still gets a
-white page.
+There are two output paths, both live.
+
+**Download** builds a real `.pdf` file with pdfmake (`src/lib/pdfDoc.js` holds the
+document definitions, `src/lib/pdf.js` drives them) and hands it to the device, so
+tapping Download on a phone puts a file in Downloads. That is the whole reason it
+exists: `window.print()` on a phone opens a print preview and leaves the user
+hunting for "Save as PDF", which some Android builds do not offer at all without a
+printer configured. Where the OS share sheet accepts files, a **Share PDF** button
+appears next to it — that is the reliable route on iOS, and it puts the document
+straight into WhatsApp.
+
+**Print** keeps the original route: a self-contained HTML document written into a
+hidden iframe followed by `window.print()`, which is still what a desktop user wants
+when a printer is the destination. The document is pinned to `color-scheme: light`
+so a viewer in dark mode still gets a white page.
+
+`html2canvas` is deliberately avoided on both paths — it cannot resolve Tailwind's
+colour tokens, renders blank or mis-coloured pages, and would turn selectable text
+into a picture of text. The pdfmake output stays vector: text is selectable, a
+typical invoice is 40–180 KB, and pagination is handled by the renderer.
+
+pdfmake and its fonts are about 1.9 MB, so they are loaded with a dynamic `import()`
+on the first Download rather than shipped in the main bundle — this app is opened on
+a phone on site, and most sessions never generate a document. Its bundled Roboto is
+also what makes `₹` (U+20B9) and the `−` used on discount lines print at all; the PDF
+standard fonts have neither, and every amount would come out as a hollow box.
+`src/lib/pdfDoc.test.js` asserts that glyph coverage directly, so a pdfmake upgrade
+that swapped the font would fail the build rather than the client's copy.
+
+### Turning a quotation into an invoice
+
+**Convert to invoice** on a quotation opens a dialog rather than creating one
+outright: it lists what is about to be carried across, lets any line be dropped or
+restored, takes extra items agreed on site since the quotation went out, and lets the
+dates, discount, GST and milestone schedule be changed. Nothing is written — and no
+invoice number is consumed — until Create is pressed. Quotation lines measure `area`
+and invoice lines bill `quantity`, so they are re-keyed on the way across.
+
+## Site photos
+
+Each project has a **Site Photos** gallery for pictures of the finished work.
+Uploads are downscaled in the browser to 1600px (plus a 480px thumbnail) before they
+leave the device, because a phone shoots 3–6 MB and the app displays nothing sharper.
+
+These live in their own `project_photos` table and are addressed one at a time
+(`GET/POST /api/projects/:id/photos`, `GET/PATCH/DELETE /api/photos/:id`) —
+**deliberately outside the synced document**. Everything in `app_state` is pushed and
+pulled whole: a photo in there would be re-uploaded 1.5 s after any keystroke
+anywhere in the app, re-downloaded by every 20 s poll, and counted against the
+browser's ~5 MB `localStorage` quota. The grid loads thumbnails only; the full image
+is fetched when a photo is opened.
+
+Projects live in the JSON document, so `project_id` is the CRM's own text id rather
+than a foreign key and nothing cascades — deleting a project (or clearing all data)
+calls the photo endpoint explicitly. A project is capped at 60 photos so a runaway
+upload cannot fill a database shared with other applications.
 
 ## Money and tax
 
@@ -247,21 +302,26 @@ is a feature build rather than a fix:
 - **Milestone billing.** A quotation's payment schedule prints, but does not
   generate the invoices that claim it.
 
-Site photo capture and push follow-ups are not built. Durable multi-device
-storage is — see *How it stores data*.
+Push follow-ups are not built. Site photos and durable multi-device storage are —
+see *Site photos* and *How it stores data*.
 
 ## Layout of the source
 
 ```
 src/
   lib/         store, sync, API client, calculations, formatting, comms
-               templates, PDF builders, auth
+               templates, auth, project photos
+               pdf.js      print HTML + the download/share entry points
+               pdfDoc.js   pdfmake document definitions for the real PDF files
+               download.js saving and sharing a generated file
   components/
     ui/        buttons, inputs, dialogs, tables, badges, stat cards (Radix + Tailwind)
-    forms/     client, project, payment and expense dialogs
+    forms/     client, project, payment and expense dialogs, convert-to-invoice
     docs/      block registry, layout builder, block palette, properties panel,
                items editor, schedule editor, totals panel, document renderer
+    projects/  site photo gallery
     charts.jsx validated chart palette, tooltip and legend
   pages/       one file per route, plus auth/
-server/        Express API — auth, the state document, schema.sql, its Dockerfile
+server/        Express API — auth, the state document, project photos,
+               schema.sql, its Dockerfile
 ```

@@ -1,13 +1,22 @@
 /**
- * PDF generation via a hidden iframe + window.print().
+ * Document output — two paths, both live.
  *
- * html2canvas is deliberately avoided: it cannot resolve Tailwind's
- * layered/oklch colour tokens and renders blank or mis-coloured pages.
- * Printing a self-contained document with inline CSS gives crisp, selectable,
- * correctly paginated A4 output in every browser.
+ * `download*` builds a real .pdf file with pdfmake and hands it to the device,
+ * because the print path was never a download on a phone: it opened a preview
+ * and left the user hunting for "Save as PDF", which some Android builds do not
+ * offer at all without a printer set up.
+ *
+ * `print*` keeps the original hidden-iframe + `window.print()` route, which is
+ * still what a desktop user wants when the printer is the destination.
+ *
+ * html2canvas is deliberately avoided on both paths: it cannot resolve
+ * Tailwind's layered/oklch colour tokens and renders blank or mis-coloured
+ * pages, and it would turn selectable text into a picture of text.
  */
 
 import { formatINR, formatDate, formatDateLong, formatNum, amountInWords } from './format'
+import { saveFile, shareFile, toDataUrl } from './download'
+import { quotationDoc, invoiceDoc, ledgerDoc } from './pdfDoc'
 import logoMark from '../../image/logo-mark.png'
 
 const esc = (s) =>
@@ -356,6 +365,23 @@ export function buildInvoiceHTML(inv, client, project, settings, totals, paid = 
   if (paid > 0 || balance !== t.grandTotal)
     extra.push(`<tr class="totrow"><td class="num" colspan="5"><strong>Balance Due</strong></td><td class="num"><strong>${formatINR(balance, true)}</strong></td></tr>`)
 
+  // Mirrors the quotation's schedule block. An invoice only carries one when
+  // the convert dialog was asked to bring the milestones across, but when it
+  // does, Print must show what the screen and the downloaded PDF show.
+  const sched = (inv.paymentSchedule || []).length
+    ? `<div class="section">
+        <h3>Payment Schedule</h3>
+        <table class="sched">
+          <thead><tr><th style="width:60%">Milestone</th><th class="num" style="width:25%">Amount</th><th class="ctr" style="width:15%">Status</th></tr></thead>
+          <tbody>${inv.paymentSchedule
+            .map(
+              (p) => `<tr><td>${esc(p.milestone)}</td><td class="num">${formatINR(p.amount)}</td><td class="ctr">${esc(p.status || 'Pending')}</td></tr>`,
+            )
+            .join('')}</tbody>
+        </table>
+      </div>`
+    : ''
+
   const inner = `
   ${letterhead(settings)}
   <div class="datebar">
@@ -403,6 +429,7 @@ export function buildInvoiceHTML(inv, client, project, settings, totals, paid = 
   <div class="words">Amount in words: ${esc(amountInWords(t.grandTotal))}</div>
 
   ${inv.notes ? `<div class="section"><h3>Notes</h3><div class="note">${nl2br(inv.notes)}</div></div>` : ''}
+  ${sched}
   ${inv.paymentTerms ? `<div class="section"><h3>Payment Terms</h3><div class="note">${nl2br(inv.paymentTerms)}</div></div>` : ''}
 
   <div class="sign"><div class="line">For ${esc(settings.company?.name || '')}<br/>Authorised Signatory</div></div>
@@ -457,11 +484,104 @@ export function buildLedgerHTML(client, rows, settings, totals) {
   return shell(`Statement — ${client.name}`, inner)
 }
 
+/* ------------------------------------------------------- real pdf files */
+
+/**
+ * Loads pdfmake on first use.
+ *
+ * It is roughly 1.9 MB with its embedded Roboto, so it is deliberately not in
+ * the main bundle — this app is opened on a phone on site, often on mobile
+ * data, and most sessions never generate a document. Dynamic import means the
+ * cost lands the first time someone taps Download, then stays cached.
+ */
+let pdfMakePromise = null
+
+function loadPdfMake() {
+  if (!pdfMakePromise) {
+    pdfMakePromise = Promise.all([
+      import('pdfmake/build/pdfmake.min.js'),
+      import('pdfmake/build/vfs_fonts.js'),
+    ])
+      .then(([mod, fontsMod]) => {
+        const pdfMake = mod.default || mod
+        const vfs = fontsMod.default?.vfs || fontsMod.default || fontsMod.vfs
+        // The bundled file registers itself against a `window.pdfMake` global,
+        // which bundling removes — so hand it over explicitly.
+        if (vfs) pdfMake.addVirtualFileSystem(vfs)
+        return pdfMake
+      })
+      .catch((e) => {
+        // Let the next attempt retry rather than caching a network failure.
+        pdfMakePromise = null
+        throw e
+      })
+  }
+  return pdfMakePromise
+}
+
+/** The letterhead mark as a data URL — the company's own logo wins. */
+function logoFor(settings) {
+  return toDataUrl(settings?.company?.logo || new URL(logoMark, window.location.origin).href)
+}
+
+async function renderBlob(docDefinition) {
+  const pdfMake = await loadPdfMake()
+  return pdfMake.createPdf(docDefinition).getBlob()
+}
+
+/** A filename the phone's Downloads list can be read at a glance. */
+const safeName = (...parts) =>
+  `${parts.filter(Boolean).join(' - ').replace(/[\\/:*?"<>|]+/g, '-').slice(0, 90)}.pdf`
+
+export async function quotationBlob(qt, client, project, settings, totals) {
+  const logo = await logoFor(settings)
+  return renderBlob(quotationDoc(qt, client, project, settings, totals, logo))
+}
+
+export async function invoiceBlob(inv, client, project, settings, totals, paid, balance, status) {
+  const logo = await logoFor(settings)
+  return renderBlob(invoiceDoc(inv, client, project, settings, totals, paid, balance, status, logo))
+}
+
+export async function ledgerBlob(client, rows, settings, totals) {
+  const logo = await logoFor(settings)
+  return renderBlob(ledgerDoc(client, rows, settings, totals, logo))
+}
+
 export async function downloadQuotation(qt, client, project, settings, totals) {
-  return generateDocumentPDF(buildQuotationHTML(qt, client, project, settings, totals), `${qt.id}-quotation`)
+  const blob = await quotationBlob(qt, client, project, settings, totals)
+  return saveFile(blob, safeName(qt.id, 'Quotation', qt.title))
 }
 
 export async function downloadInvoice(inv, client, project, settings, totals, paid, balance, status) {
+  const blob = await invoiceBlob(inv, client, project, settings, totals, paid, balance, status)
+  return saveFile(blob, safeName(inv.id, 'Tax Invoice'))
+}
+
+export async function downloadLedger(client, rows, settings, totals) {
+  const blob = await ledgerBlob(client, rows, settings, totals)
+  return saveFile(blob, safeName(client.id, 'Statement', client.company || client.name))
+}
+
+/* ------------------------------------------------------------- sharing */
+
+export async function shareQuotation(qt, client, project, settings, totals, text) {
+  const blob = await quotationBlob(qt, client, project, settings, totals)
+  return shareFile(blob, safeName(qt.id, 'Quotation', qt.title), { title: `Quotation ${qt.id}`, text })
+}
+
+export async function shareInvoice(inv, client, project, settings, totals, paid, balance, status, text) {
+  const blob = await invoiceBlob(inv, client, project, settings, totals, paid, balance, status)
+  return shareFile(blob, safeName(inv.id, 'Tax Invoice'), { title: `Invoice ${inv.id}`, text })
+}
+
+/* -------------------------------------------------------------- printing */
+
+export async function printQuotation(qt, client, project, settings, totals) {
+  return generateDocumentPDF(buildQuotationHTML(qt, client, project, settings, totals), `${qt.id}-quotation`)
+}
+
+export async function printInvoice(inv, client, project, settings, totals, paid, balance, status) {
   return generateDocumentPDF(
     buildInvoiceHTML(inv, client, project, settings, totals, paid, balance, status),
     `${inv.id}-invoice`,
