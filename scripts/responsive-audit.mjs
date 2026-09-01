@@ -6,7 +6,7 @@
  * breakage. Usage: node scripts/responsive-audit.mjs [baseUrl]
  */
 import puppeteer from 'puppeteer-core'
-import { existsSync, mkdirSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync } from 'node:fs'
 
 const BASE = process.argv[2] || 'http://localhost:5173'
 const SHOTS = process.env.SHOTS === '1'
@@ -49,6 +49,16 @@ const ROUTES = [
   ['settings', '/settings'],
   ['search', '/search?q=a'],
   ['login', '/login'],
+  // Detail routes only exist once there is a record to open, so they come from
+  // the environment alongside AUDIT_DB: AUDIT_ROUTES="project=/projects/PRJ-…"
+  ...(process.env.AUDIT_ROUTES || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map((pair) => {
+      const at = pair.indexOf('=')
+      return at === -1 ? [pair, pair] : [pair.slice(0, at), pair.slice(at + 1)]
+    }),
 ]
 
 const session = {
@@ -57,6 +67,10 @@ const session = {
   role: 'Owner',
   since: new Date().toISOString(),
   expires: Date.now() + 30 * 86400000,
+  token: 'audit-token',
+  // Optional: point AUDIT_DB at a JSON export to audit the detail routes,
+  // which are empty and therefore meaningless on a blank install.
+  db: process.env.AUDIT_DB ? readFileSync(process.env.AUDIT_DB, 'utf8') : null,
 }
 
 /** Reports the widest offending elements, so the fix has somewhere to land. */
@@ -101,6 +115,12 @@ let problems = 0
 const page = await browser.newPage()
 await page.evaluateOnNewDocument((s) => {
   localStorage.setItem('stonezen_auth_v1', JSON.stringify(s))
+  // `isAuthenticated` requires the bearer token as well as the cached user —
+  // without it every route redirected to /login and this script has been
+  // auditing the sign-in page thirteen times over.
+  localStorage.setItem('stonezen_token_v1', s.token)
+  if (s.db) localStorage.setItem('stonezen_crm_v1', s.db)
+  localStorage.setItem('stonezen_demo_purged_v1', '1')
 }, session)
 
 for (const [label, route] of ROUTES) {
