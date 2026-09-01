@@ -9,6 +9,7 @@ import { useStore } from '../lib/useStore'
 import { projectSummary } from '../lib/calc'
 import { formatINR, formatINRCompact, formatDate, daysUntil } from '../lib/format'
 import { deleteProject } from '../lib/store'
+import { deleteProjectPhotos } from '../lib/photos'
 import { PROJECT_STATUSES } from '../lib/seed'
 
 import PageHeader from '../components/ui/PageHeader'
@@ -339,7 +340,11 @@ export default function Projects() {
         onOpenChange={(o) => !o && setConfirm(null)}
         title={`Delete ${confirm?.name}?`}
         description="Expenses booked against this project are removed too. Quotations and invoices are kept but unlinked."
-        onConfirm={() => deleteProject(confirm.id)}
+        onConfirm={() => {
+          // Photos are in their own table with no foreign key to cascade from.
+          deleteProjectPhotos(confirm.id)
+          deleteProject(confirm.id)
+        }}
       />
     </div>
   )
