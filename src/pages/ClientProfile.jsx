@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import {
   Phone, Mail, MessageCircle, MapPin, Pencil, Trash2, Plus, FileText,
   ReceiptIndianRupee, Hammer, Wallet, BookOpen, IndianRupee, TrendingUp,
-  Clock, Download, ArrowRight,
+  Clock, Download, ArrowRight, Loader2,
 } from 'lucide-react'
 
 import { useStore } from '../lib/useStore'
@@ -11,13 +11,15 @@ import { clientTotals, ledgerForClient, quotationTotals, invoiceTotals, invoiceB
 import { formatINR, formatINRCompact, formatDate, initials } from '../lib/format'
 import { deleteClient, clientDeletionBlockers } from '../lib/store'
 import { whatsappLink, mailtoLink, telLink, openLink } from '../lib/comms'
-import { generateDocumentPDF, buildLedgerHTML } from '../lib/pdf'
+import { downloadLedger } from '../lib/pdf'
+import { useAsyncAction } from '../lib/useAsyncAction'
 
 import PageHeader from '../components/ui/PageHeader'
 import EmptyState from '../components/ui/EmptyState'
 import StatusBadge from '../components/ui/StatusBadge'
 import StatCard from '../components/ui/StatCard'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
+import ActionError from '../components/ui/ActionError'
 import ClientDialog from '../components/forms/ClientDialog'
 import ProjectDialog from '../components/forms/ProjectDialog'
 import PaymentDialog from '../components/forms/PaymentDialog'
@@ -45,6 +47,7 @@ export default function ClientProfile() {
   const [projectOpen, setProjectOpen] = useState(false)
   const [paymentOpen, setPaymentOpen] = useState(false)
   const [confirm, setConfirm] = useState(false)
+  const statement = useAsyncAction()
 
   const client = db.clients.find((c) => c.id === id)
   const tab = params.get('tab') || 'overview'
@@ -73,8 +76,7 @@ export default function ClientProfile() {
 
   const setTab = (v) => setParams(v === 'overview' ? {} : { tab: v }, { replace: true })
 
-  const downloadStatement = () =>
-    generateDocumentPDF(buildLedgerHTML(client, ledger, db.settings, t), `${client.id}-statement`)
+  const downloadStatement = () => statement.run(() => downloadLedger(client, ledger, db.settings, t))
 
   return (
     <div>
@@ -194,7 +196,7 @@ export default function ClientProfile() {
             <Card>
               <CardHeader>
                 <CardTitle>Financial Summary</CardTitle>
-                <Button size="xs" variant="ghost" onClick={downloadStatement}>
+                <Button size="xs" variant="ghost" onClick={downloadStatement} disabled={statement.busy}>
                   <Download /> Statement
                 </Button>
               </CardHeader>
@@ -377,8 +379,8 @@ export default function ClientProfile() {
             <p className="text-[13px] text-slate-500">
               Running account — invoices raised (debit) against payments received (credit).
             </p>
-            <Button size="sm" variant="outline" onClick={downloadStatement}>
-              <Download /> Download statement
+            <Button size="sm" variant="outline" onClick={downloadStatement} disabled={statement.busy}>
+              {statement.busy ? <Loader2 className="animate-spin" /> : <Download />} Download statement
             </Button>
           </div>
           {ledger.length === 0 ? (
@@ -475,6 +477,8 @@ export default function ClientProfile() {
       <ClientDialog open={editOpen} client={client} onOpenChange={setEditOpen} />
       <ProjectDialog open={projectOpen} onOpenChange={setProjectOpen} defaultClientId={client.id} />
       <PaymentDialog open={paymentOpen} onOpenChange={setPaymentOpen} defaults={{ clientId: client.id }} />
+      <ActionError action={statement} />
+
       <ConfirmDialog
         open={confirm}
         onOpenChange={setConfirm}

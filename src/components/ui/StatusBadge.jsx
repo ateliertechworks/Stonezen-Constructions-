@@ -10,6 +10,8 @@ const TONES = {
   Draft: 'slate', Sent: 'blue', Accepted: 'green', Rejected: 'red', Expired: 'amber',
   // invoices
   Paid: 'green', 'Partially Paid': 'amber', Overdue: 'red', Pending: 'amber',
+  // project photos
+  'Before Work': 'slate', Material: 'purple', Issue: 'red',
   // misc
   Received: 'green', high: 'red', medium: 'amber', low: 'blue',
 }

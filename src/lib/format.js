@@ -62,15 +62,27 @@ export function monthLabel(key) {
   return `${MONTHS[Number(m) - 1]} ${String(y).slice(2)}`
 }
 
-export function todayISO() {
-  const d = new Date()
+/**
+ * A date as the calendar day it is *here*, not in UTC.
+ *
+ * `toISOString().slice(0, 10)` is the obvious version and it is wrong east of
+ * Greenwich: 1am in Coimbatore (UTC+5:30) is still the previous day in UTC, so
+ * anything dated that way is filed a day early.
+ */
+export function localISO(date) {
+  const d = date instanceof Date ? date : new Date(date)
+  if (Number.isNaN(d.getTime())) return ''
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+export function todayISO() {
+  return localISO(new Date())
 }
 
 export function addDaysISO(iso, days) {
   const d = new Date(iso || todayISO())
   d.setDate(d.getDate() + Number(days || 0))
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  return localISO(d)
 }
 
 export function daysSince(iso) {

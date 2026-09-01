@@ -45,6 +45,38 @@ INSERT INTO app_state (id, version, blob)
 VALUES (1, 0, '{}'::jsonb)
 ON CONFLICT (id) DO NOTHING;
 
+-- Site photographs, deliberately NOT part of the JSONB document above.
+--
+-- Everything in app_state is pushed and pulled whole on every change: a photo
+-- living there would be re-uploaded 1.5s after any keystroke anywhere in the
+-- app, re-downloaded by every 20s poll, and counted against the browser's
+-- ~5MB localStorage quota. Photos are therefore addressed one at a time and
+-- fetched only when a project is actually opened.
+--
+-- project_id is the CRM's own text id (PRJ-2026-27-003), not a foreign key:
+-- projects live in the JSON document, so there is no row to reference.
+CREATE TABLE IF NOT EXISTS project_photos (
+  id          BIGSERIAL   PRIMARY KEY,
+  project_id  TEXT        NOT NULL,
+  caption     TEXT        NOT NULL DEFAULT '',
+  stage       TEXT        NOT NULL DEFAULT 'Completed',
+  taken_on    DATE,
+  mime        TEXT        NOT NULL DEFAULT 'image/jpeg',
+  width       INTEGER     NOT NULL DEFAULT 0,
+  height      INTEGER     NOT NULL DEFAULT 0,
+  bytes       INTEGER     NOT NULL DEFAULT 0,
+  -- Two base64 payloads: a grid-sized thumbnail sent with the listing, and the
+  -- full image fetched only when one is opened. Sending full images with the
+  -- listing would make opening a project download several megabytes on site.
+  thumb       TEXT        NOT NULL,
+  data        TEXT        NOT NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  created_by  TEXT
+);
+
+CREATE INDEX IF NOT EXISTS project_photos_project_idx
+  ON project_photos (project_id, created_at DESC);
+
 CREATE TABLE IF NOT EXISTS settings (
   key   TEXT PRIMARY KEY,
   value JSONB NOT NULL
@@ -56,3 +88,7 @@ CREATE TABLE IF NOT EXISTS settings (
 ALTER TABLE users ADD COLUMN IF NOT EXISTS recovery_salt       TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS recovery_hash       TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS recovery_iterations INTEGER;
+
+-- Added after the first deploy; harmless on a database that already has them.
+ALTER TABLE project_photos ADD COLUMN IF NOT EXISTS stage    TEXT NOT NULL DEFAULT 'Completed';
+ALTER TABLE project_photos ADD COLUMN IF NOT EXISTS taken_on DATE;

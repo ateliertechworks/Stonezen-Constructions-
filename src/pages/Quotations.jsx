@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FileText, Plus, Search, Pencil, Trash2, Download, Eye, BellRing, ReceiptIndianRupee, Percent } from 'lucide-react'
+import { FileText, Plus, Search, Pencil, Trash2, Download, Eye, BellRing, ReceiptIndianRupee, Percent, Loader2 } from 'lucide-react'
 
 import { useStore } from '../lib/useStore'
 import { quotationTotals } from '../lib/calc'
 import { formatINR, formatINRCompact, formatDate, daysSince, todayISO } from '../lib/format'
-import { deleteQuotation, createInvoiceFromQuotation } from '../lib/store'
+import { deleteQuotation } from '../lib/store'
 import { downloadQuotation } from '../lib/pdf'
+import { useAsyncAction } from '../lib/useAsyncAction'
 import { QUOTATION_STATUSES } from '../lib/seed'
 
 import PageHeader from '../components/ui/PageHeader'
@@ -15,6 +16,8 @@ import StatusBadge from '../components/ui/StatusBadge'
 import StatCard from '../components/ui/StatCard'
 import MobileOverview from '../components/ui/MobileOverview'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
+import ConvertToInvoiceDialog from '../components/forms/ConvertToInvoiceDialog'
+import ActionError from '../components/ui/ActionError'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { SimpleSelect } from '../components/ui/select'
@@ -27,6 +30,11 @@ export default function Quotations() {
   const [q, setQ] = useState('')
   const [status, setStatus] = useState('All')
   const [confirm, setConfirm] = useState(null)
+  const [convertQt, setConvertQt] = useState(null)
+  const pdf = useAsyncAction()
+  // Which row is rendering. One shared busy flag would spin every row's icon
+  // at once, which reads as the whole table having locked up.
+  const [pdfFor, setPdfFor] = useState(null)
 
   const rows = useMemo(() => {
     const term = q.trim().toLowerCase()
@@ -186,16 +194,19 @@ export default function Quotations() {
                           <Button size="iconSm" variant="ghost" title="Edit" onClick={() => navigate(`/quotations/${qt.id}/edit`)}>
                             <Pencil />
                           </Button>
-                          <Button size="iconSm" variant="ghost" title="Download PDF"
-                            onClick={() => downloadQuotation(qt, client, project, db.settings, totals)}>
-                            <Download />
+                          <Button
+                            size="iconSm" variant="ghost" title="Download PDF" disabled={pdf.busy}
+                            onClick={() => {
+                              setPdfFor(qt.id)
+                              pdf.run(() => downloadQuotation(qt, client, project, db.settings, totals))
+                                .finally(() => setPdfFor(null))
+                            }}
+                          >
+                            {pdf.busy && pdfFor === qt.id ? <Loader2 className="animate-spin" /> : <Download />}
                           </Button>
                           {!invoice && (
                             <Button size="iconSm" variant="ghost" title="Convert to invoice"
-                              onClick={() => {
-                                const inv = createInvoiceFromQuotation(qt)
-                                navigate(`/invoices/${inv.id}/edit`)
-                              }}>
+                              onClick={() => setConvertQt(qt)}>
                               <ReceiptIndianRupee />
                             </Button>
                           )}
@@ -212,6 +223,15 @@ export default function Quotations() {
           </TableWrap>
         </>
       )}
+
+      <ActionError action={pdf} />
+
+      <ConvertToInvoiceDialog
+        open={!!convertQt}
+        onOpenChange={(o) => !o && setConvertQt(null)}
+        quotation={convertQt}
+        onCreated={(inv) => navigate(`/invoices/${inv.id}/preview`)}
+      />
 
       <ConfirmDialog
         open={!!confirm}

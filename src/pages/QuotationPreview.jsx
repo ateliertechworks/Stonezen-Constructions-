@@ -2,14 +2,16 @@ import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   Download, Pencil, MessageCircle, Mail, Trash2, ReceiptIndianRupee,
-  CheckCircle2, Send, Printer,
+  CheckCircle2, Send, Printer, Share2, Loader2,
 } from 'lucide-react'
 
 import { useStore } from '../lib/useStore'
 import { quotationTotals } from '../lib/calc'
-import { updateQuotation, deleteQuotation, createInvoiceFromQuotation, addActivity } from '../lib/store'
+import { updateQuotation, deleteQuotation, addActivity } from '../lib/store'
 import { formatINR, formatDate, todayISO } from '../lib/format'
-import { downloadQuotation } from '../lib/pdf'
+import { downloadQuotation, printQuotation, shareQuotation } from '../lib/pdf'
+import { canShareFiles } from '../lib/download'
+import { useAsyncAction } from '../lib/useAsyncAction'
 import { whatsappLink, mailtoLink, openLink, shareDocWhatsApp, followupEmailTemplate } from '../lib/comms'
 import { QUOTATION_STATUSES } from '../lib/seed'
 import { normalizeBlocks } from '../components/docs/blocks'
@@ -17,6 +19,8 @@ import { normalizeBlocks } from '../components/docs/blocks'
 import PageHeader from '../components/ui/PageHeader'
 import EmptyState from '../components/ui/EmptyState'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
+import ActionError from '../components/ui/ActionError'
+import ConvertToInvoiceDialog from '../components/forms/ConvertToInvoiceDialog'
 import DocumentView from '../components/docs/DocumentView'
 import { Button } from '../components/ui/button'
 import { SimpleSelect } from '../components/ui/select'
@@ -27,6 +31,9 @@ export default function QuotationPreview() {
   const db = useStore()
   const navigate = useNavigate()
   const [confirm, setConfirm] = useState(false)
+  const [convertOpen, setConvertOpen] = useState(false)
+  const pdf = useAsyncAction()
+  const shareable = canShareFiles()
 
   const qt = db.quotations.find((q) => q.id === id)
   const totals = useMemo(() => quotationTotals(qt || {}), [qt])
@@ -59,10 +66,19 @@ export default function QuotationPreview() {
     openLink(mailtoLink(client?.email || qt.email, subject, body))
   }
 
-  const convert = () => {
-    const inv = createInvoiceFromQuotation(qt)
-    navigate(`/invoices/${inv.id}/edit`)
-  }
+  const savePdf = () => pdf.run(() => downloadQuotation(qt, client, project, db.settings, totals))
+  const sharePdf = () =>
+    pdf.run(async () => {
+      const how = await shareQuotation(
+        qt, client, project, db.settings, totals,
+        shareDocWhatsApp(client, qt, totals.grandTotal, 'Quotation', db.settings.company),
+      )
+      // The sheet is not available on every browser; falling back to a download
+      // beats a button that does nothing.
+      if (how === 'unsupported') return downloadQuotation(qt, client, project, db.settings, totals)
+      if (how === 'shared') addActivity(`Quotation ${qt.id} PDF shared with ${client?.name || 'client'}`, 'quotation')
+      return how
+    })
 
   return (
     <div className="pb-16 lg:pb-0">
@@ -89,8 +105,8 @@ export default function QuotationPreview() {
             <Button size="sm" variant="outline" onClick={() => navigate(`/quotations/${qt.id}/edit`)}>
               <Pencil /> Edit
             </Button>
-            <Button size="sm" variant="outline" onClick={() => downloadQuotation(qt, client, project, db.settings, totals)}>
-              <Download /> PDF
+            <Button size="sm" variant="outline" onClick={savePdf} disabled={pdf.busy}>
+              {pdf.busy ? <Loader2 className="animate-spin" /> : <Download />} PDF
             </Button>
             <Button size="sm" variant="whatsapp" onClick={sendWhatsApp} disabled={!client?.phone && !client?.whatsapp}>
               <MessageCircle /> WhatsApp
@@ -117,8 +133,19 @@ export default function QuotationPreview() {
           <Card>
             <CardContent className="space-y-2 p-3">
               <p className="text-[11px] font-bold uppercase tracking-wide text-slate-400">Actions</p>
-              <Button className="w-full justify-start" variant="outline" onClick={() => downloadQuotation(qt, client, project, db.settings, totals)}>
-                <Printer /> Print / Save as PDF
+              <Button className="w-full justify-start" onClick={savePdf} disabled={pdf.busy}>
+                {pdf.busy ? <Loader2 className="animate-spin" /> : <Download />} Download PDF
+              </Button>
+              {shareable && (
+                <Button className="w-full justify-start" variant="outline" onClick={sharePdf} disabled={pdf.busy}>
+                  <Share2 /> Share PDF
+                </Button>
+              )}
+              <Button
+                className="w-full justify-start" variant="outline"
+                onClick={() => printQuotation(qt, client, project, db.settings, totals)}
+              >
+                <Printer /> Print
               </Button>
               <Button className="w-full justify-start" variant="whatsapp" onClick={sendWhatsApp} disabled={!client?.phone && !client?.whatsapp}>
                 <MessageCircle /> Send on WhatsApp
@@ -160,7 +187,7 @@ export default function QuotationPreview() {
                   </Link>
                 </Button>
               ) : (
-                <Button className="w-full justify-start" onClick={convert}>
+                <Button className="w-full justify-start" onClick={() => setConvertOpen(true)}>
                   <ReceiptIndianRupee /> Convert to invoice
                 </Button>
               )}
@@ -200,8 +227,8 @@ export default function QuotationPreview() {
 
       {/* Mobile action bar */}
       <div className="fixed inset-x-0 bottom-[56px] z-30 flex gap-2 border-t border-slate-200 bg-white/95 px-3 py-2 backdrop-blur sm:hidden">
-        <Button variant="outline" className="flex-1" onClick={() => downloadQuotation(qt, client, project, db.settings, totals)}>
-          <Download /> PDF
+        <Button variant="outline" className="flex-1" onClick={savePdf} disabled={pdf.busy}>
+          {pdf.busy ? <Loader2 className="animate-spin" /> : <Download />} PDF
         </Button>
         <Button variant="whatsapp" className="flex-1" onClick={sendWhatsApp}>
           <MessageCircle /> Send
@@ -210,6 +237,15 @@ export default function QuotationPreview() {
           <Pencil />
         </Button>
       </div>
+
+      <ActionError action={pdf} />
+
+      <ConvertToInvoiceDialog
+        open={convertOpen}
+        onOpenChange={setConvertOpen}
+        quotation={qt}
+        onCreated={(inv) => navigate(`/invoices/${inv.id}/preview`)}
+      />
 
       <ConfirmDialog
         open={confirm}

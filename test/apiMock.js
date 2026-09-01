@@ -7,6 +7,13 @@
  * real endpoints closely enough that the tests exercise the real code paths,
  * including the 409 that guards against overwriting another device's work.
  */
+/** The listing endpoint sends thumbnails only; the full image is fetched by id. */
+const withoutData = (photo) => {
+  const copy = { ...photo }
+  delete copy.data
+  return copy
+}
+
 export function installApiMock() {
   const state = {
     users: [],
@@ -14,6 +21,11 @@ export function installApiMock() {
     version: 0,
     blob: null,
     requests: [],
+    // Photos live outside the synced document, so they get their own store
+    // here too — a test that finds them in `blob` has caught a real regression.
+    photos: [],
+    nextPhotoId: 1,
+    photoLimit: 60,
   }
 
   const token = (u) => `tok.${u.email}`
@@ -97,6 +109,72 @@ export function installApiMock() {
       state.version += 1
       state.blob = body.blob
       return json(200, { ok: true, version: state.version })
+    }
+
+    /* ------------------------------------------------------------ photos */
+
+    const listMatch = path.match(/^\/projects\/([^/]+)\/photos$/)
+    if (listMatch) {
+      if (!me) return json(401, { error: 'Not signed in.' })
+      const projectId = decodeURIComponent(listMatch[1])
+
+      if (method === 'GET') {
+        // Thumbnails only, exactly as the real endpoint does.
+        const photos = state.photos.filter((p) => p.projectId === projectId).map(withoutData)
+        return json(200, { photos })
+      }
+
+      if (method === 'POST') {
+        if (state.photos.filter((p) => p.projectId === projectId).length >= state.photoLimit) {
+          return json(409, { error: `A project can hold ${state.photoLimit} photos. Delete one before adding another.` })
+        }
+        if (typeof body?.data !== 'string' || !body.data.startsWith('data:image/')) {
+          return json(400, { error: 'Expected a base64 JPEG, PNG or WebP data URL.' })
+        }
+        const photo = {
+          id: String(state.nextPhotoId++),
+          projectId,
+          caption: body.caption || '',
+          stage: body.stage || 'Completed',
+          takenOn: body.takenOn || null,
+          mime: 'image/jpeg',
+          width: body.width || 0,
+          height: body.height || 0,
+          bytes: body.data.length,
+          thumb: body.thumb,
+          data: body.data,
+          createdAt: new Date().toISOString(),
+          createdBy: me.email,
+        }
+        state.photos.push(photo)
+        return json(201, { photo })
+      }
+
+      if (method === 'DELETE') {
+        const before = state.photos.length
+        state.photos = state.photos.filter((p) => p.projectId !== projectId)
+        return json(200, { ok: true, deleted: before - state.photos.length })
+      }
+    }
+
+    const oneMatch = path.match(/^\/photos\/([^/]+)$/)
+    if (oneMatch) {
+      if (!me) return json(401, { error: 'Not signed in.' })
+      const id = decodeURIComponent(oneMatch[1])
+      const photo = state.photos.find((p) => p.id === id)
+      if (!photo) return json(404, { error: 'Photo not found.' })
+
+      if (method === 'GET') return json(200, { photo })
+      if (method === 'PATCH') {
+        if (body?.caption !== undefined) photo.caption = body.caption
+        if (body?.stage !== undefined) photo.stage = body.stage
+        if (body?.takenOn !== undefined) photo.takenOn = body.takenOn
+        return json(200, { photo: withoutData(photo) })
+      }
+      if (method === 'DELETE') {
+        state.photos = state.photos.filter((p) => p.id !== id)
+        return json(200, { ok: true })
+      }
     }
 
     return json(404, { error: `No route for ${method} ${path}` })

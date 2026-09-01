@@ -8,6 +8,7 @@ import {
 
 import { useStore } from '../lib/useStore'
 import { updateSettings, clearData, exportData, importData } from '../lib/store'
+import { deleteProjectPhotos } from '../lib/photos'
 import {
   getSession, logout, updateProfile, changePassword, generateRecoveryCode,
   hasRecoveryCode, bootstrap, setRegistrationOpen,
@@ -510,9 +511,14 @@ export default function Settings() {
         open={confirmClear}
         onOpenChange={setConfirmClear}
         title="Clear all data?"
-        description="Every client, project, quotation, invoice, payment and expense will be deleted. Your company settings are kept."
+        description="Every client, project, quotation, invoice, payment, expense and site photo will be deleted. Your company settings are kept."
         confirmLabel="Delete everything"
         onConfirm={() => {
+          // Photos live in their own table keyed by the project's text id, and
+          // clearing data also resets the counters — so the next project created
+          // would be PRJ-<fy>-001 again and would inherit the old one's photos.
+          // Purge them while the ids are still known.
+          db.projects.forEach((p) => deleteProjectPhotos(p.id))
           clearData()
           flash('All data cleared')
         }}

@@ -30,7 +30,7 @@ app.use((req, res, next) => {
     res.set('Access-Control-Allow-Origin', origin)
     res.set('Vary', 'Origin')
     res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-    res.set('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, OPTIONS')
+    res.set('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS')
     res.set('Access-Control-Max-Age', '86400')
   }
   if (req.method === 'OPTIONS') return res.sendStatus(origin && ALLOWED.includes(origin) ? 204 : 403)
@@ -330,6 +330,185 @@ app.put('/api/state', requireAuth, async (req, res, next) => {
   } finally {
     client.release()
   }
+})
+
+/* -------------------------------------------------------------- photos */
+
+// A phone camera produces 3-6MB JPEGs. The browser downscales before upload,
+// so anything much over this is either a bug or someone bypassing the client.
+const MAX_PHOTO_BYTES = 3_000_000
+// The thumbnail is sent with every listing, so it is what actually decides how
+// heavy opening a project is. Capping it separately is the point of the split:
+// one oversized thumb would be re-downloaded on every visit, for ever.
+const MAX_THUMB_BYTES = 200_000
+const MAX_PHOTOS_PER_PROJECT = 60
+const DATA_URL = /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/
+
+/** Decoded byte length of a base64 payload, without decoding it. */
+function base64Bytes(dataUrl) {
+  const b64 = dataUrl.slice(dataUrl.indexOf(',') + 1)
+  const padding = b64.endsWith('==') ? 2 : b64.endsWith('=') ? 1 : 0
+  return Math.floor((b64.length * 3) / 4) - padding
+}
+
+const photoRow = (r) => ({
+  id: String(r.id),
+  projectId: r.project_id,
+  caption: r.caption,
+  stage: r.stage,
+  // Already 'YYYY-MM-DD' text from the query. It must not go through a JS
+  // Date: node-postgres builds one at *local* midnight for a DATE column, and
+  // toISOString() then shifts it into UTC — in IST that turns 20 Aug into 19 Aug
+  // on every photo. Letting Postgres format it keeps the calendar date exact.
+  takenOn: r.taken_on || null,
+  mime: r.mime,
+  width: r.width,
+  height: r.height,
+  bytes: r.bytes,
+  createdAt: r.created_at,
+  createdBy: r.created_by,
+  ...(r.thumb !== undefined ? { thumb: r.thumb } : {}),
+  ...(r.data !== undefined ? { data: r.data } : {}),
+})
+
+/**
+ * Lists a project's photos with thumbnails only.
+ *
+ * The full images are deliberately left out: a project with thirty site photos
+ * would otherwise be a multi-megabyte response every time it is opened, which
+ * on a site visit means a long stall on mobile data.
+ */
+app.get('/api/projects/:projectId/photos', requireAuth, async (req, res, next) => {
+  try {
+    const { rows } = await query(
+      `SELECT id, project_id, caption, stage,
+              to_char(taken_on, 'YYYY-MM-DD') AS taken_on,
+              mime, width, height, bytes, thumb, created_at, created_by
+         FROM project_photos
+        WHERE project_id = $1
+        ORDER BY created_at DESC, id DESC`,
+      [String(req.params.projectId)],
+    )
+    res.json({ photos: rows.map(photoRow) })
+  } catch (e) { next(e) }
+})
+
+/** The full-size image for one photo. */
+app.get('/api/photos/:id', requireAuth, async (req, res, next) => {
+  try {
+    const id = Number(req.params.id)
+    if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'Bad photo id.' })
+    const { rows } = await query(
+      `SELECT id, project_id, caption, stage,
+              to_char(taken_on, 'YYYY-MM-DD') AS taken_on,
+              mime, width, height, bytes, data, created_at, created_by
+         FROM project_photos WHERE id = $1`,
+      [id],
+    )
+    if (!rows[0]) return res.status(404).json({ error: 'Photo not found.' })
+    res.json({ photo: photoRow(rows[0]) })
+  } catch (e) { next(e) }
+})
+
+app.post('/api/projects/:projectId/photos', requireAuth, async (req, res, next) => {
+  try {
+    const projectId = String(req.params.projectId || '').trim()
+    if (!projectId) return res.status(400).json({ error: 'A project id is required.' })
+
+    const { data, thumb, caption = '', stage = 'Completed', takenOn = null, width = 0, height = 0 } = req.body || {}
+    if (typeof data !== 'string' || !DATA_URL.test(data)) {
+      return res.status(400).json({ error: 'Expected a base64 JPEG, PNG or WebP data URL.' })
+    }
+    if (typeof thumb !== 'string' || !DATA_URL.test(thumb)) {
+      return res.status(400).json({ error: 'A thumbnail is required.' })
+    }
+    const dataBytes = base64Bytes(data)
+    if (dataBytes > MAX_PHOTO_BYTES) {
+      return res.status(413).json({ error: 'That image is too large even after resizing. Try a smaller photo.' })
+    }
+    const thumbBytes = base64Bytes(thumb)
+    if (thumbBytes > MAX_THUMB_BYTES) {
+      return res.status(413).json({ error: 'That thumbnail is too large. It should be a downscaled preview, not the full image.' })
+    }
+    // Both halves count: `bytes` is what the UI reports as the photo's weight,
+    // and a figure that ignored the thumbnail would understate the row.
+    const bytes = dataBytes + thumbBytes
+
+    const mime = data.slice(5, data.indexOf(';'))
+    // The per-project cap is enforced inside the INSERT rather than by a
+    // separate SELECT: a runaway client firing two uploads at once would both
+    // pass a check-then-insert and push the project over. A row count of zero
+    // here means the cap turned it away. A runaway loop would otherwise fill a
+    // database several other applications sit on.
+    const { rows } = await query(
+      `INSERT INTO project_photos (project_id, caption, stage, taken_on, mime, width, height, bytes, thumb, data, created_by)
+       SELECT $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11
+        WHERE (SELECT count(*) FROM project_photos WHERE project_id = $1) < ${MAX_PHOTOS_PER_PROJECT}
+       RETURNING id, project_id, caption, stage,
+                 to_char(taken_on, 'YYYY-MM-DD') AS taken_on,
+                 mime, width, height, bytes, thumb, created_at, created_by`,
+      [
+        projectId, String(caption).slice(0, 500), String(stage).slice(0, 40), takenOn || null,
+        mime, Number(width) || 0, Number(height) || 0, bytes, thumb, data, req.user.email,
+      ],
+    )
+    if (!rows[0]) {
+      return res.status(409).json({
+        error: `A project can hold ${MAX_PHOTOS_PER_PROJECT} photos. Delete one before adding another.`,
+      })
+    }
+    res.status(201).json({ photo: photoRow(rows[0]) })
+  } catch (e) { next(e) }
+})
+
+app.patch('/api/photos/:id', requireAuth, async (req, res, next) => {
+  try {
+    const id = Number(req.params.id)
+    if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'Bad photo id.' })
+    const { caption, stage, takenOn } = req.body || {}
+    const { rows } = await query(
+      `UPDATE project_photos
+          SET caption  = COALESCE($2, caption),
+              stage    = COALESCE($3, stage),
+              taken_on = COALESCE($4, taken_on)
+        WHERE id = $1
+        RETURNING id, project_id, caption, stage,
+                  to_char(taken_on, 'YYYY-MM-DD') AS taken_on,
+                  mime, width, height, bytes, thumb, created_at, created_by`,
+      [
+        id,
+        caption === undefined ? null : String(caption).slice(0, 500),
+        stage === undefined ? null : String(stage).slice(0, 40),
+        takenOn === undefined ? null : takenOn || null,
+      ],
+    )
+    if (!rows[0]) return res.status(404).json({ error: 'Photo not found.' })
+    res.json({ photo: photoRow(rows[0]) })
+  } catch (e) { next(e) }
+})
+
+app.delete('/api/photos/:id', requireAuth, async (req, res, next) => {
+  try {
+    const id = Number(req.params.id)
+    if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'Bad photo id.' })
+    const { rowCount } = await query('DELETE FROM project_photos WHERE id = $1', [id])
+    if (!rowCount) return res.status(404).json({ error: 'Photo not found.' })
+    res.json({ ok: true })
+  } catch (e) { next(e) }
+})
+
+/**
+ * Removes every photo for a project.
+ *
+ * Called when a project is deleted. Projects live in the JSON document, so no
+ * foreign key can cascade this — without the call, a deleted project's photos
+ * would sit in the database forever with nothing pointing at them.
+ */
+app.delete('/api/projects/:projectId/photos', requireAuth, async (req, res, next) => {
+  try {
+    const { rowCount } = await query('DELETE FROM project_photos WHERE project_id = $1', [String(req.params.projectId)])
+    res.json({ ok: true, deleted: rowCount })
+  } catch (e) { next(e) }
 })
 
 /* --------------------------------------------------------------- error */

@@ -9,12 +9,14 @@ import { useStore } from '../lib/useStore'
 import { projectSummary, quotationTotals, invoiceTotals, invoiceBalance, invoiceDisplayStatus } from '../lib/calc'
 import { formatINR, formatDate, daysUntil } from '../lib/format'
 import { deleteProject, deleteExpense } from '../lib/store'
+import { deleteProjectPhotos } from '../lib/photos'
 
 import PageHeader from '../components/ui/PageHeader'
 import EmptyState from '../components/ui/EmptyState'
 import StatusBadge from '../components/ui/StatusBadge'
 import StatCard from '../components/ui/StatCard'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
+import ProjectPhotos from '../components/projects/ProjectPhotos'
 import ProjectDialog from '../components/forms/ProjectDialog'
 import ExpenseDialog from '../components/forms/ExpenseDialog'
 import PaymentDialog from '../components/forms/PaymentDialog'
@@ -293,6 +295,8 @@ export default function ProjectDetail() {
         </CardContent>
       </Card>
 
+      <ProjectPhotos project={project} />
+
       <ProjectDialog open={editOpen} project={project} onOpenChange={setEditOpen} />
       <ExpenseDialog open={expenseOpen} onOpenChange={setExpenseOpen} defaults={{ projectId: project.id }} />
       <PaymentDialog open={paymentOpen} onOpenChange={setPaymentOpen} defaults={{ clientId: project.clientId, projectId: project.id, invoiceId: project.invoiceId || '' }} />
@@ -300,8 +304,11 @@ export default function ProjectDetail() {
         open={confirm}
         onOpenChange={setConfirm}
         title={`Delete ${project.name}?`}
-        description="Expenses booked against this project are removed too."
+        description="Expenses and site photos booked against this project are removed too."
         onConfirm={() => {
+          // Photos live in their own table, so nothing cascades — ask the
+          // server to drop them before the project id stops existing locally.
+          deleteProjectPhotos(project.id)
           deleteProject(project.id)
           navigate('/projects')
         }}

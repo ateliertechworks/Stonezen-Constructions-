@@ -1,16 +1,18 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { Save, Download, Eye, FileText, Layers, LayoutTemplate, SlidersHorizontal, Check } from 'lucide-react'
+import { Save, Download, Eye, FileText, Layers, LayoutTemplate, SlidersHorizontal, Check, Loader2 } from 'lucide-react'
 
 import { useStore } from '../lib/useStore'
 import { addQuotation, updateQuotation, blankQuotation, addActivity } from '../lib/store'
 import { quotationTotals } from '../lib/calc'
 import { formatINR, addDaysISO } from '../lib/format'
 import { downloadQuotation } from '../lib/pdf'
+import { useAsyncAction } from '../lib/useAsyncAction'
 import { QUOTATION_STATUSES } from '../lib/seed'
 import { NONE, toSel, fromSel, cn } from '../lib/utils'
 
 import PageHeader from '../components/ui/PageHeader'
+import ActionError from '../components/ui/ActionError'
 import { Button } from '../components/ui/button'
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card'
 import { Input } from '../components/ui/input'
@@ -60,6 +62,7 @@ export default function QuotationBuilder() {
   const [tab, setTab] = useState('details')
   const [saved, setSaved] = useState(!!existing)
   const [savedId, setSavedId] = useState(existing?.id || null)
+  const pdf = useAsyncAction()
 
   // Reload when navigating between two saved quotations.
   useEffect(() => {
@@ -131,8 +134,13 @@ export default function QuotationBuilder() {
     navigate(`/quotations/${newId}/preview`)
   }
 
+  // Generating a PDF now loads a renderer over the network, so it needs the
+  // same busy-and-error handling as the preview pages — a bare call here would
+  // leave the button looking dead and swallow a failure entirely.
   const downloadPdf = () =>
-    downloadQuotation({ ...doc, id: savedId || doc.quotationNumber }, client, project, db.settings, totals)
+    pdf.run(() =>
+      downloadQuotation({ ...doc, id: savedId || doc.quotationNumber }, client, project, db.settings, totals),
+    )
 
   const clientOptions = db.clients.map((c) => ({ value: c.id, label: c.company || c.name }))
   const projectOptions = [
@@ -368,8 +376,8 @@ export default function QuotationBuilder() {
         }
         actions={
           <div className="hidden gap-2 sm:flex">
-            <Button size="sm" variant="outline" onClick={downloadPdf}>
-              <Download /> PDF
+            <Button size="sm" variant="outline" onClick={downloadPdf} disabled={pdf.busy}>
+              {pdf.busy ? <Loader2 className="animate-spin" /> : <Download />} PDF
             </Button>
             <Button size="sm" variant="outline" onClick={saveAndPreview} disabled={!doc.clientId}>
               <Eye /> Preview
@@ -407,13 +415,15 @@ export default function QuotationBuilder() {
 
       {/* Mobile action bar */}
       <div className="fixed inset-x-0 bottom-[56px] z-30 flex gap-2 border-t border-slate-200 bg-white/95 px-3 py-2 backdrop-blur sm:hidden">
-        <Button variant="outline" className="flex-1" onClick={downloadPdf}>
-          <Download /> PDF
+        <Button variant="outline" className="flex-1" onClick={downloadPdf} disabled={pdf.busy}>
+          {pdf.busy ? <Loader2 className="animate-spin" /> : <Download />} PDF
         </Button>
         <Button className="flex-1" onClick={save} disabled={!doc.clientId || !doc.title}>
           {saved ? <Check /> : <Save />} {saved ? 'Saved' : 'Save'}
         </Button>
       </div>
+
+      <ActionError action={pdf} />
     </div>
   )
 }
