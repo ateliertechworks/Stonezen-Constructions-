@@ -491,6 +491,24 @@ export function deleteInvoice(id) {
 }
 
 /**
+ * Whether a document's line items are still untouched boilerplate.
+ *
+ * A blank builder starts with one empty row, so "no items" is not the same as
+ * an empty array. This is what decides whether copying a quotation in can
+ * happen silently or has to ask first — getting it wrong either nags on every
+ * fresh invoice or destroys typed work without warning.
+ */
+export function itemsAreEmpty(items = []) {
+  return !items.some(
+    (it) =>
+      String(it?.description || '').trim() ||
+      Number(it?.quantity) ||
+      Number(it?.area) ||
+      Number(it?.rate),
+  )
+}
+
+/**
  * The invoice fields a quotation implies, before the user has said anything.
  *
  * Split out from `createInvoiceFromQuotation` so the convert dialog can show
@@ -509,7 +527,9 @@ export function invoiceDraftFromQuotation(q, db = state) {
     shippingAddress: q.siteAddress || '',
     gstin: q.gstin || client?.gstin || '',
     gstEnabled: !!q.gstEnabled,
-    gst: q.gst,
+    // A quotation written by hand may carry no rate at all, and an undefined
+    // here would overwrite `blankInvoice`'s default rather than defer to it.
+    gst: q.gst ?? state.settings.docs.defaultGst ?? 18,
     gstType: q.gstType || 'intra',
     discount: q.discount || 0,
     additionalCharges: q.additionalCharges || 0,

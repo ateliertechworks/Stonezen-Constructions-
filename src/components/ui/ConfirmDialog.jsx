@@ -1,6 +1,7 @@
-import { AlertTriangle } from 'lucide-react'
+import { AlertTriangle, HelpCircle } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from './dialog'
 import { Button } from './button'
+import { cn } from '../../lib/utils'
 
 export default function ConfirmDialog({
   open, onOpenChange, title = 'Are you sure?', description,
@@ -10,8 +11,19 @@ export default function ConfirmDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-red-50">
-            <AlertTriangle className="h-5 w-5 text-red-600" />
+          {/* A question that destroys nothing should not wear a warning icon —
+              it trains the user to click through the ones that do. */}
+          <div
+            className={cn(
+              'mb-3 flex h-10 w-10 items-center justify-center rounded-full',
+              variant === 'destructive' ? 'bg-red-50' : 'bg-navy-50',
+            )}
+          >
+            {variant === 'destructive' ? (
+              <AlertTriangle className="h-5 w-5 text-red-600" />
+            ) : (
+              <HelpCircle className="h-5 w-5 text-brand" />
+            )}
           </div>
           <DialogTitle>{title}</DialogTitle>
           {description && <DialogDescription>{description}</DialogDescription>}

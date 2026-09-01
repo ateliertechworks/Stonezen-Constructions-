@@ -306,3 +306,37 @@ describe('the sample dataset is cleared once', () => {
     expect(reloaded.getState().clients[0].name).toBe('Re-entered by hand')
   })
 })
+
+/* ------------------------------------------------------ blank item guard */
+
+describe('itemsAreEmpty', () => {
+  // Decides whether picking a reference quotation copies its lines in
+  // silently, or has to warn first. A blank builder starts with one empty
+  // row, so an empty array is not the only "nothing here yet".
+  it('treats a fresh builder row as empty', async () => {
+    const { itemsAreEmpty } = await freshStore()
+    expect(itemsAreEmpty([])).toBe(true)
+    expect(itemsAreEmpty([{ sno: 1, description: '', unit: 'Sqft', quantity: 0, rate: 0, amount: 0 }])).toBe(true)
+    expect(itemsAreEmpty([{ description: '   ' }])).toBe(true)
+    expect(itemsAreEmpty()).toBe(true)
+  })
+
+  it('sees a description, a quantity or a rate as real work', async () => {
+    const { itemsAreEmpty } = await freshStore()
+    expect(itemsAreEmpty([{ description: 'Granite', quantity: 0, rate: 0 }])).toBe(false)
+    expect(itemsAreEmpty([{ description: '', quantity: 12, rate: 0 }])).toBe(false)
+    expect(itemsAreEmpty([{ description: '', quantity: 0, rate: 250 }])).toBe(false)
+  })
+
+  // A quotation measures `area` where an invoice measures `quantity`; missing
+  // that would have let a half-typed quotation be silently overwritten.
+  it('counts a quotation row measured in area', async () => {
+    const { itemsAreEmpty } = await freshStore()
+    expect(itemsAreEmpty([{ description: '', area: 320.5, rate: 0 }])).toBe(false)
+  })
+
+  it('ignores a blank row sitting after a real one', async () => {
+    const { itemsAreEmpty } = await freshStore()
+    expect(itemsAreEmpty([{ description: 'Granite', quantity: 1, rate: 1 }, { description: '' }])).toBe(false)
+  })
+})

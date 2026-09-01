@@ -3,7 +3,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Save, Download, Eye, FileText, Layers, LayoutTemplate, SlidersHorizontal, Check, Copy, Loader2 } from 'lucide-react'
 
 import { useStore } from '../lib/useStore'
-import { addInvoice, updateInvoice, blankInvoice, addActivity } from '../lib/store'
+import { addInvoice, updateInvoice, blankInvoice, addActivity, invoiceDraftFromQuotation, itemsAreEmpty } from '../lib/store'
 import { invoiceTotals, invoicePaid, invoiceDisplayStatus } from '../lib/calc'
 import { formatINR, addDaysISO } from '../lib/format'
 import { downloadInvoice } from '../lib/pdf'
@@ -13,6 +13,7 @@ import { NONE, toSel, fromSel, cn } from '../lib/utils'
 
 import PageHeader from '../components/ui/PageHeader'
 import ActionError from '../components/ui/ActionError'
+import ConfirmDialog from '../components/ui/ConfirmDialog'
 import { Button } from '../components/ui/button'
 import { Card, CardHeader, CardTitle, CardContent } from '../components/ui/card'
 import { Input } from '../components/ui/input'
@@ -39,31 +40,26 @@ export default function InvoiceBuilder() {
 
   const [doc, setDoc] = useState(() => {
     if (existing) return { ...existing }
+
     const fromQuote = params.get('fromQuote')
     const quote = fromQuote ? db.quotations.find((q) => q.id === fromQuote) : null
-    const clientId = quote?.clientId || params.get('client') || ''
-    const projectId = quote?.projectId || params.get('project') || ''
+    // Arriving with ?fromQuote is the same operation as picking a reference
+    // quotation in the form, so it goes through the same mapping. This used to
+    // re-key area into quantity inline, a second copy of a money-carrying rule
+    // that only the other copy had tests for.
+    if (quote) return blankInvoice(invoiceDraftFromQuotation(quote, db))
+
+    const clientId = params.get('client') || ''
+    const projectId = params.get('project') || ''
     const client = db.clients.find((c) => c.id === clientId)
     const project = db.projects.find((p) => p.id === projectId)
     return blankInvoice({
       clientId,
       projectId,
-      quotationId: quote?.id || '',
       billingAddress: [client?.address, client?.city, client?.pincode].filter(Boolean).join(', '),
-      shippingAddress: project?.siteAddress || quote?.siteAddress || '',
+      shippingAddress: project?.siteAddress || '',
       gstin: client?.gstin || '',
       gstEnabled: !!client?.gstin,
-      gst: quote?.gst ?? db.settings.docs.defaultGst,
-      gstType: quote?.gstType || 'intra',
-      discount: quote?.discount || 0,
-      additionalCharges: quote?.additionalCharges || 0,
-      notes: quote ? `Generated from quotation ${quote.id}.` : '',
-      items: quote
-        ? (quote.items || []).map((it, i) => ({
-            sno: i + 1, description: it.description, unit: it.unit,
-            quantity: Number(it.area || 0), rate: Number(it.rate || 0), amount: Number(it.amount || 0),
-          }))
-        : [{ sno: 1, description: '', unit: 'Sqft', quantity: 0, rate: 0, amount: 0 }],
     })
   })
 
@@ -74,6 +70,9 @@ export default function InvoiceBuilder() {
   const [saved, setSaved] = useState(!!existing)
   const [savedId, setSavedId] = useState(existing?.id || null)
   const pdf = useAsyncAction()
+  // The quotation waiting to be copied in, once the user has said it is safe to
+  // overwrite the lines already typed.
+  const [pullFrom, setPullFrom] = useState(null)
 
   useEffect(() => {
     if (existing && existing.id !== savedId) {
@@ -100,6 +99,53 @@ export default function InvoiceBuilder() {
   const setBlocksDirty = (next) => {
     setBlocks(next)
     setSaved(false)
+  }
+
+  /**
+   * Copies a quotation's lines and terms into the invoice being written.
+   *
+   * Picking a reference quotation used to record the link and nothing else, so
+   * the whole scope of work had to be retyped against a document the app was
+   * already pointing at. Fields the user has filled in are kept — only the
+   * items and the tax/discount terms, which are the quotation's to state, are
+   * taken wholesale.
+   */
+  const applyQuotation = (q) => {
+    const draft = invoiceDraftFromQuotation(q, db)
+    // Merged against current state, not the render that opened the dialog:
+    // selecting the quotation already wrote `quotationId`, so a `doc` captured
+    // earlier is one version stale and the `keep what the user typed` guards
+    // below would read the wrong values.
+    setDoc((d) => ({
+      ...d,
+      quotationId: q.id,
+      clientId: d.clientId || draft.clientId,
+      projectId: d.projectId || draft.projectId,
+      billingAddress: d.billingAddress || draft.billingAddress,
+      shippingAddress: d.shippingAddress || draft.shippingAddress,
+      gstin: d.gstin || draft.gstin,
+      gstEnabled: draft.gstEnabled,
+      gst: draft.gst,
+      gstType: draft.gstType,
+      discount: draft.discount,
+      additionalCharges: draft.additionalCharges,
+      autoRoundOff: draft.autoRoundOff,
+      roundOff: draft.roundOff,
+      notes: d.notes || draft.notes,
+      items: draft.items,
+    }))
+    setSaved(false)
+  }
+
+  const onQuotationChange = (v) => {
+    const qid = fromSel(v)
+    // The link is recorded either way; the dialog only decides whether the
+    // lines already in the table are replaced.
+    set({ quotationId: qid })
+    const q = qid ? db.quotations.find((x) => x.id === qid) : null
+    if (!q) return
+    if (itemsAreEmpty(doc.items)) applyQuotation(q)
+    else setPullFrom(q)
   }
 
   const onClientChange = (v) => {
@@ -170,8 +216,8 @@ export default function InvoiceBuilder() {
             <Field label="Project">
               <SimpleSelect value={toSel(doc.projectId)} onValueChange={(v) => set({ projectId: fromSel(v) })} options={projectOptions} />
             </Field>
-            <Field label="Reference quotation">
-              <SimpleSelect value={toSel(doc.quotationId)} onValueChange={(v) => set({ quotationId: fromSel(v) })} options={quoteOptions} />
+            <Field label="Reference quotation" hint="Copies its lines and rates in">
+              <SimpleSelect value={toSel(doc.quotationId)} onValueChange={onQuotationChange} options={quoteOptions} />
             </Field>
             <Field label="Invoice date">
               <Input type="date" value={doc.date} onChange={(e) => set({ date: e.target.value, dueDate: addDaysISO(e.target.value, 15) })} />
@@ -419,6 +465,17 @@ export default function InvoiceBuilder() {
           {saved ? <Check /> : <Save />} {saved ? 'Saved' : 'Save'}
         </Button>
       </div>
+
+      <ConfirmDialog
+        open={!!pullFrom}
+        onOpenChange={(o) => !o && setPullFrom(null)}
+        variant="default"
+        title={`Copy ${pullFrom?.id} into this invoice?`}
+        description={`This replaces the ${(doc.items || []).length} line${(doc.items || []).length === 1 ? '' : 's'} you have already entered, along with the discount and GST settings. The link to the quotation is kept either way.`}
+        confirmLabel="Replace my lines"
+        cancelLabel="Keep my lines"
+        onConfirm={() => applyQuotation(pullFrom)}
+      />
 
       <ActionError action={pdf} />
     </div>
